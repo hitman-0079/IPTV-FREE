@@ -7,9 +7,13 @@ let searchTimeout = null;
 let hlsPlayer = null;
 let plyrInstance = null;
 
-// Persistent User Volume State
+// Audio Volume States
 let userVolume = 1;
 let isUserMuted = false;
+
+// Infinite scroll rendering chunk settings for large M3U files
+const RENDER_CHUNK_SIZE = 100;
+let renderedCount = 0;
 
 const isMobileDevice = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const DEFAULT_PLAYLIST_URL = "https://iptv-org.github.io/iptv/index.m3u";
@@ -22,7 +26,6 @@ const DEFAULT_FALLBACK_CHANNEL = {
   url: "https://content.uplynk.com/channel/3324f2467c414329b3b0cc5838d41a37.m3u8"
 };
 
-// ISO Language Mapping
 const ISO_LANGUAGES = {
   eng: "English", en: "English",
   spa: "Spanish", es: "Spanish",
@@ -68,7 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Track volume and mute changes explicitly from the Plyr UI controls
   plyrInstance.on('volumechange', () => {
     userVolume = plyrInstance.volume;
     isUserMuted = plyrInstance.muted;
@@ -76,11 +78,18 @@ document.addEventListener('DOMContentLoaded', () => {
     videoPlayer.muted = isUserMuted;
   });
 
+  // Lazy render channel chunks when scrolling near sidebar bottom
+  channelListEl.addEventListener('scroll', () => {
+    if (channelListEl.scrollTop + channelListEl.clientHeight >= channelListEl.scrollHeight - 200) {
+      appendMoreChannels();
+    }
+  });
+
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
   fetchAndParsePlaylist(playlistSelect.value);
 });
 
-// Brand Header Reset to Landing Page
+// Brand Header Reset to Home / Default Playlist
 brandLogo.addEventListener('click', goHome);
 brandLogo.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') {
@@ -95,15 +104,11 @@ function goHome() {
     skipTimer = null;
   }
   
-  // Clear search and reset inputs
   searchInput.value = '';
   m3uUrlInput.value = '';
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
 
-  // Scroll mobile layout top
   window.scrollTo({ top: 0, behavior: 'smooth' });
-
-  // Reload default main playlist
   fetchAndParsePlaylist(DEFAULT_PLAYLIST_URL);
 }
 
@@ -147,46 +152,52 @@ function navigateCategoryChannel(direction) {
   if (currentChannelIndex < 0) currentChannelIndex = activeCategoryList.length - 1;
 
   const nextChannel = activeCategoryList[currentChannelIndex];
-  const targetElement = channelListEl.children[currentChannelIndex];
+  
+  // Ensure target channel element exists in the DOM if it's beyond rendered chunk
+  while (renderedCount <= currentChannelIndex && renderedCount < activeCategoryList.length) {
+    appendMoreChannels();
+  }
 
+  const targetElement = channelListEl.children[currentChannelIndex];
   playChannel(nextChannel, targetElement, currentChannelIndex, true);
 }
 
-// Fetch and Parse Directory
+// Optimized parsing for massive playlists (e.g., iptv-org index.m3u)
 async function fetchAndParsePlaylist(url) {
-  statusBar.textContent = 'Loading channel directory...';
-  channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Displaying channels...</li>';
+  statusBar.textContent = 'Downloading iptv-org playlist...';
+  channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Parsing channels...</li>';
 
   try {
     const response = await fetch(url);
-    if (!response.ok) throw new Error('Network response was not ok');
+    if (!response.ok) throw new Error('Network error');
     const m3uText = await response.text();
     
-    const urlLang = detectLanguageFromUrl(url);
-    const parsedChannels = fastM3UParse(m3uText, urlLang);
-    const unsortedChannels = [DEFAULT_FALLBACK_CHANNEL, ...parsedChannels];
-
-    channels = unsortedChannels.sort((a, b) => 
-      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-    );
+    statusBar.textContent = 'Building directory...';
     
-    if (channels.length > 0) {
-      filterChannels();
-      statusBar.textContent = `${channels.length} channels loaded`;
+    // Asynchronous non-blocking chunk parsing
+    setTimeout(() => {
+      const urlLang = detectLanguageFromUrl(url);
+      const parsedChannels = fastM3UParse(m3uText, urlLang);
 
-      const firstChannel = channels[0];
+      if (parsedChannels.length > 0) {
+        channels = parsedChannels;
+      } else {
+        channels = [DEFAULT_FALLBACK_CHANNEL];
+      }
+
+      filterChannels();
+      statusBar.textContent = `${channels.length.toLocaleString()} channels loaded`;
+
+      const firstChannel = activeCategoryList[0];
       const firstElement = channelListEl.children[0];
       playChannel(firstChannel, firstElement, 0, false);
-    } else {
-      channels = [DEFAULT_FALLBACK_CHANNEL];
-      filterChannels();
-      playChannel(DEFAULT_FALLBACK_CHANNEL, channelListEl.children[0], 0, false);
-    }
+    }, 20);
+
   } catch (error) {
     channels = [DEFAULT_FALLBACK_CHANNEL];
     filterChannels();
     playChannel(DEFAULT_FALLBACK_CHANNEL, channelListEl.children[0], 0, false);
-    statusBar.textContent = 'Fallback stream active';
+    statusBar.textContent = 'Fallback stream loaded';
   }
 }
 
@@ -201,7 +212,7 @@ function detectLanguageFromUrl(url) {
 function fastM3UParse(m3uData, defaultLanguage = null) {
   const result = [];
   const lines = m3uData.split('\n');
-  let name = '', category = 'General', language = defaultLanguage || 'International';
+  let name = '', category = 'General', language = defaultLanguage || 'Global';
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -216,7 +227,7 @@ function fastM3UParse(m3uData, defaultLanguage = null) {
       } else if (defaultLanguage) {
         language = defaultLanguage;
       } else {
-        language = 'International';
+        language = 'Global';
       }
 
       const commaIdx = line.indexOf(',');
@@ -253,29 +264,29 @@ function filterChannels() {
     );
   }
 
-  activeCategoryList.sort((a, b) => 
-    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-  );
-
-  renderChannelList(activeCategoryList);
-}
-
-function renderChannelList(list) {
+  renderedCount = 0;
   channelListEl.innerHTML = '';
   
   if (channelCountEl) {
-    channelCountEl.textContent = `Channels: ${list.length.toLocaleString()} of ${channels.length.toLocaleString()}`;
+    channelCountEl.textContent = `Channels: ${activeCategoryList.length.toLocaleString()} of ${channels.length.toLocaleString()}`;
   }
 
-  if (list.length === 0) {
-    channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">No channels available</li>';
+  if (activeCategoryList.length === 0) {
+    channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">No channels found</li>';
     return;
   }
 
-  const fragment = document.createDocumentFragment();
+  appendMoreChannels();
+}
 
-  for (let i = 0; i < list.length; i++) {
-    const channel = list[i];
+function appendMoreChannels() {
+  if (renderedCount >= activeCategoryList.length) return;
+
+  const fragment = document.createDocumentFragment();
+  const nextChunkLimit = Math.min(renderedCount + RENDER_CHUNK_SIZE, activeCategoryList.length);
+
+  for (let i = renderedCount; i < nextChunkLimit; i++) {
+    const channel = activeCategoryList[i];
     const li = document.createElement('li');
     li.className = 'channel-item';
     li.innerHTML = `
@@ -286,14 +297,16 @@ function renderChannelList(list) {
       </div>
     `;
 
+    const index = i;
     li.addEventListener('click', () => {
-      playChannel(channel, li, i, true);
+      playChannel(channel, li, index, true);
     });
 
     fragment.appendChild(li);
   }
 
   channelListEl.appendChild(fragment);
+  renderedCount = nextChunkLimit;
 }
 
 function playChannel(channel, element, categoryIndex, isUserClicked = true) {
@@ -322,7 +335,6 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
     hlsPlayer = null;
   }
 
-  // Preserve user volume settings across video switches
   if (plyrInstance) {
     plyrInstance.volume = userVolume;
     plyrInstance.muted = isUserMuted;
@@ -363,7 +375,6 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
         playPromise.then(() => {
           statusBar.textContent = 'Broadcasting';
         }).catch(() => {
-          // Fallback to muted playback if browser blocks unmuted autoplay
           if (plyrInstance) plyrInstance.muted = true;
           videoPlayer.muted = true;
           videoPlayer.play();

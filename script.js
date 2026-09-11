@@ -7,9 +7,11 @@ let searchTimeout = null;
 let hlsPlayer = null;
 let plyrInstance = null;
 
-// Captions State & Speech Recognition
+// Gemini Captions State
 let captionsEnabled = false;
-let speechRecognizer = null;
+let geminiApiKey = localStorage.getItem('gemini_api_key') || '';
+let captionInterval = null;
+let isCapturing = false;
 
 // Audio Volume States
 let userVolume = 1;
@@ -42,9 +44,7 @@ const ISO_LANGUAGES = {
   hin: "Hindi", hi: "Hindi",
   jpn: "Japanese", ja: "Japanese",
   kor: "Korean", ko: "Korean",
-  tur: "Turkish", tr: "Turkish",
-  nld: "Dutch", nl: "Dutch",
-  pol: "Polish", pl: "Polish"
+  tur: "Turkish", tr: "Turkish"
 };
 
 // DOM Elements
@@ -69,9 +69,8 @@ const captionText = document.getElementById('captionText');
 
 document.addEventListener('DOMContentLoaded', () => {
   plyrInstance = new Plyr(videoPlayer, {
-    controls: ['play-large', 'play', 'mute', 'volume', 'current-time', 'captions', 'settings', 'pip', 'fullscreen'],
+    controls: ['play-large', 'play', 'mute', 'volume', 'current-time', 'settings', 'pip', 'fullscreen'],
     autoplay: true,
-    captions: { active: true, language: 'en', update: true },
     quality: {
       default: -1,
       options: [-1],
@@ -93,110 +92,153 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Toggle Live English Subtitles
+  // Toggle Live Gemini Subtitles
   captionToggleBtn.addEventListener('click', toggleCaptions);
 
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
   fetchAndParsePlaylist(playlistSelect.value);
 });
 
-// Toggle Subtitles Feature
-function toggleCaptions() {
+/* ========================================================= */
+/* GEMINI AI LIVE AUDIO CAPTIONING                           */
+/* ========================================================= */
+
+async function toggleCaptions() {
   captionsEnabled = !captionsEnabled;
   captionToggleBtn.classList.toggle('active', captionsEnabled);
 
   if (captionsEnabled) {
-    enableEnglishCaptions();
+    if (!geminiApiKey) {
+      geminiApiKey = prompt("Enter your Google Gemini API Key to enable AI Live Captions:");
+      if (!geminiApiKey) {
+        captionsEnabled = false;
+        captionToggleBtn.classList.remove('active');
+        return;
+      }
+      localStorage.setItem('gemini_api_key', geminiApiKey);
+    }
+    startGeminiCaptions();
   } else {
-    disableCaptions();
+    stopGeminiCaptions();
   }
 }
 
-function enableEnglishCaptions() {
-  if (plyrInstance) {
-    plyrInstance.toggleCaptions(true);
-  }
+function startGeminiCaptions() {
+  liveCaptionOverlay.classList.remove('hidden');
+  captionText.textContent = "Connecting to Gemini AI...";
+  isCapturing = true;
 
-  // Check native HLS WebVTT/CEA Tracks
-  if (hlsPlayer && hlsPlayer.subtitleTracks.length > 0) {
-    const engIndex = hlsPlayer.subtitleTracks.findIndex(t => 
-      t.lang === 'en' || t.name.toLowerCase().includes('eng')
-    );
-    if (engIndex !== -1) {
-      hlsPlayer.subtitleTrack = engIndex;
-      liveCaptionOverlay.classList.add('hidden');
+  try {
+    // Capture the internal audio stream from the HTML5 video element
+    const stream = videoPlayer.captureStream ? videoPlayer.captureStream() : (videoPlayer.mozCaptureStream ? videoPlayer.mozCaptureStream() : null);
+    
+    if (!stream || stream.getAudioTracks().length === 0) {
+      captionText.textContent = "Error: Stream audio is blocked by broadcaster CORS policies.";
       return;
     }
-  }
 
-  // Browser Web Speech API Live Caption Fallback
-  startSpeechRecognition();
+    captionText.textContent = "Listening to live broadcast...";
+    
+    // Cycle and record a chunk of audio every 4 seconds
+    captureInterval = setInterval(() => {
+      if (isCapturing) recordAndSendAudioChunk(stream);
+    }, 4000);
+    
+    recordAndSendAudioChunk(stream); // Send first chunk immediately
+
+  } catch (err) {
+    captionText.textContent = "CORS Error: Audio capture blocked by stream security.";
+    console.error("Capture stream error:", err);
+  }
 }
 
-function disableCaptions() {
-  if (plyrInstance) {
-    plyrInstance.toggleCaptions(false);
-  }
-  if (hlsPlayer) {
-    hlsPlayer.subtitleTrack = -1;
-  }
-  if (speechRecognizer) {
-    speechRecognizer.stop();
-    speechRecognizer = null;
-  }
+function stopGeminiCaptions() {
+  isCapturing = false;
   liveCaptionOverlay.classList.add('hidden');
+  if (captureInterval) {
+    clearInterval(captureInterval);
+    captureInterval = null;
+  }
 }
 
-function startSpeechRecognition() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+function recordAndSendAudioChunk(stream) {
+  const audioTrack = stream.getAudioTracks()[0];
+  if (!audioTrack) return;
+
+  const chunkStream = new MediaStream([audioTrack]);
+  const recorder = new MediaRecorder(chunkStream, { mimeType: 'audio/webm' });
+  const chunks = [];
+
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
   
-  if (!SpeechRecognition) {
-    liveCaptionOverlay.classList.remove('hidden');
-    captionText.textContent = "Live CC: Stream has no closed captions.";
-    return;
-  }
-
-  if (speechRecognizer) speechRecognizer.stop();
-
-  speechRecognizer = new SpeechRecognition();
-  speechRecognizer.continuous = true;
-  speechRecognizer.interimResults = true;
-  speechRecognizer.lang = 'en-US';
-
-  speechRecognizer.onstart = () => {
-    liveCaptionOverlay.classList.remove('hidden');
-    captionText.textContent = "Listening for audio...";
-  };
-
-  speechRecognizer.onresult = (event) => {
-    let transcript = '';
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      transcript += event.results[i][0].transcript;
-    }
-    if (transcript.trim()) {
-      captionText.textContent = transcript;
+  recorder.onstop = async () => {
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    if (blob.size > 0) {
+      const base64Audio = await blobToBase64(blob);
+      transcribeWithGemini(base64Audio);
     }
   };
 
-  speechRecognizer.onerror = () => {
-    captionText.textContent = "Live CC Active (Waiting for audio)";
-  };
+  recorder.start();
+  // Stop recording just before the next cycle begins to output the file
+  setTimeout(() => {
+    if (recorder.state !== 'inactive') recorder.stop();
+  }, 3900); 
+}
 
-  speechRecognizer.onend = () => {
-    if (captionsEnabled) {
-      try { speechRecognizer.start(); } catch(e){}
-    }
+function blobToBase64(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function transcribeWithGemini(base64Data) {
+  if (!isCapturing) return;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
+  const payload = {
+    contents: [{
+      parts: [
+        { text: "You are a closed-captioning system. Transcribe the following short audio snippet accurately in English. Do not add markdown or extra commentary. If there is no human speech, reply strictly with '[SILENCE]'." },
+        { inlineData: { mimeType: "audio/webm", data: base64Data } }
+      ]
+    }],
+    generationConfig: { temperature: 0.2 } // Low temp for accurate transcription
   };
 
   try {
-    speechRecognizer.start();
-  } catch(e) {
-    liveCaptionOverlay.classList.remove('hidden');
-    captionText.textContent = "Live CC Active";
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+
+    if (data.candidates && data.candidates[0].content.parts[0].text) {
+      const text = data.candidates[0].content.parts[0].text.trim();
+      
+      // Ignore empty silence reports to keep the last spoken subtitle on screen
+      if (text && !text.includes("[SILENCE]")) {
+        captionText.textContent = text;
+      }
+    } else if (data.error) {
+      if (data.error.code === 403) {
+        captionText.textContent = "Error: Invalid Gemini API Key.";
+        stopGeminiCaptions();
+      }
+    }
+  } catch (err) {
+    console.error("Gemini Transcription Error:", err);
   }
 }
 
-// Brand Header Reset to Home
+/* ========================================================= */
+/* APP LOGIC & M3U HANDLING                                  */
+/* ========================================================= */
+
 brandLogo.addEventListener('click', goHome);
 brandLogo.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') {
@@ -418,6 +460,12 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
     clearTimeout(skipTimer);
     skipTimer = null;
   }
+  
+  // Restart captions context for the new audio track
+  if (captionsEnabled) {
+    stopGeminiCaptions();
+  }
+
   currentChannelIndex = categoryIndex;
 
   const prevActive = channelListEl.querySelector('.active');
@@ -474,19 +522,17 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
         onChange: (q) => { if (hlsPlayer) hlsPlayer.currentLevel = q; }
       };
 
-      if (captionsEnabled) {
-        enableEnglishCaptions();
-      }
-
       const playPromise = videoPlayer.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
           statusBar.textContent = 'Broadcasting';
+          if (captionsEnabled) setTimeout(startGeminiCaptions, 1000);
         }).catch(() => {
           if (plyrInstance) plyrInstance.muted = true;
           videoPlayer.muted = true;
           videoPlayer.play();
           statusBar.textContent = 'Broadcasting (Muted)';
+          if (captionsEnabled) setTimeout(startGeminiCaptions, 1000);
         });
       }
     });
@@ -511,14 +557,15 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
 
   } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
     videoPlayer.src = channel.url;
-    if (captionsEnabled) enableEnglishCaptions();
     videoPlayer.play().then(() => {
       statusBar.textContent = 'Broadcasting';
+      if (captionsEnabled) setTimeout(startGeminiCaptions, 1000);
     }).catch(() => {
       if (plyrInstance) plyrInstance.muted = true;
       videoPlayer.muted = true;
       videoPlayer.play();
       statusBar.textContent = 'Broadcasting (Muted)';
+      if (captionsEnabled) setTimeout(startGeminiCaptions, 1000);
     });
   }
 }

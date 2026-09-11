@@ -240,6 +240,23 @@ select:focus, input[type="text"]:focus {
   object-fit: contain;
 }
 
+/* ========================================================= */
+/* FULLSCREEN SCREEN-FIT RULE (STRETCH & FILL ENTIRE DISPLAY) */
+/* ========================================================= */
+
+/* When Plyr or Video container goes native/fullscreen */
+:fullscreen video,
+:-webkit-full-screen video,
+:-moz-full-screen video,
+:-ms-fullscreen video,
+.plyr--fullscreen-active video,
+.plyr--fullscreen-active .plyr__video-wrapper {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  object-fit: fill !important; /* Stretches video to fill screen completely */
+}
+
 /* Broadcast Meta Bar */
 .broadcast-bar {
   width: 100%;

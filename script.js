@@ -7,11 +7,14 @@ let searchTimeout = null;
 let hlsPlayer = null;
 let plyrInstance = null;
 
+// Captions State & Speech Recognition
+let captionsEnabled = false;
+let speechRecognizer = null;
+
 // Audio Volume States
 let userVolume = 1;
 let isUserMuted = false;
 
-// Infinite scroll rendering chunk settings for large M3U files
 const RENDER_CHUNK_SIZE = 100;
 let renderedCount = 0;
 
@@ -59,10 +62,16 @@ const stopBtn = document.getElementById('stopBtn');
 const nextBtn = document.getElementById('nextBtn');
 const channelCountEl = document.getElementById('channelCount');
 
+// Live Caption DOM Elements
+const captionToggleBtn = document.getElementById('captionToggleBtn');
+const liveCaptionOverlay = document.getElementById('liveCaptionOverlay');
+const captionText = document.getElementById('captionText');
+
 document.addEventListener('DOMContentLoaded', () => {
   plyrInstance = new Plyr(videoPlayer, {
-    controls: ['play-large', 'play', 'mute', 'volume', 'current-time', 'settings', 'pip', 'fullscreen'],
+    controls: ['play-large', 'play', 'mute', 'volume', 'current-time', 'captions', 'settings', 'pip', 'fullscreen'],
     autoplay: true,
+    captions: { active: true, language: 'en', update: true },
     quality: {
       default: -1,
       options: [-1],
@@ -78,18 +87,116 @@ document.addEventListener('DOMContentLoaded', () => {
     videoPlayer.muted = isUserMuted;
   });
 
-  // Lazy render channel chunks when scrolling near sidebar bottom
   channelListEl.addEventListener('scroll', () => {
     if (channelListEl.scrollTop + channelListEl.clientHeight >= channelListEl.scrollHeight - 200) {
       appendMoreChannels();
     }
   });
 
+  // Toggle Live English Subtitles
+  captionToggleBtn.addEventListener('click', toggleCaptions);
+
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
   fetchAndParsePlaylist(playlistSelect.value);
 });
 
-// Brand Header Reset to Home / Default Playlist
+// Toggle Subtitles Feature
+function toggleCaptions() {
+  captionsEnabled = !captionsEnabled;
+  captionToggleBtn.classList.toggle('active', captionsEnabled);
+
+  if (captionsEnabled) {
+    enableEnglishCaptions();
+  } else {
+    disableCaptions();
+  }
+}
+
+function enableEnglishCaptions() {
+  if (plyrInstance) {
+    plyrInstance.toggleCaptions(true);
+  }
+
+  // Check native HLS WebVTT/CEA Tracks
+  if (hlsPlayer && hlsPlayer.subtitleTracks.length > 0) {
+    const engIndex = hlsPlayer.subtitleTracks.findIndex(t => 
+      t.lang === 'en' || t.name.toLowerCase().includes('eng')
+    );
+    if (engIndex !== -1) {
+      hlsPlayer.subtitleTrack = engIndex;
+      liveCaptionOverlay.classList.add('hidden');
+      return;
+    }
+  }
+
+  // Browser Web Speech API Live Caption Fallback
+  startSpeechRecognition();
+}
+
+function disableCaptions() {
+  if (plyrInstance) {
+    plyrInstance.toggleCaptions(false);
+  }
+  if (hlsPlayer) {
+    hlsPlayer.subtitleTrack = -1;
+  }
+  if (speechRecognizer) {
+    speechRecognizer.stop();
+    speechRecognizer = null;
+  }
+  liveCaptionOverlay.classList.add('hidden');
+}
+
+function startSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  
+  if (!SpeechRecognition) {
+    liveCaptionOverlay.classList.remove('hidden');
+    captionText.textContent = "Live CC: Stream has no closed captions.";
+    return;
+  }
+
+  if (speechRecognizer) speechRecognizer.stop();
+
+  speechRecognizer = new SpeechRecognition();
+  speechRecognizer.continuous = true;
+  speechRecognizer.interimResults = true;
+  speechRecognizer.lang = 'en-US';
+
+  speechRecognizer.onstart = () => {
+    liveCaptionOverlay.classList.remove('hidden');
+    captionText.textContent = "Listening for audio...";
+  };
+
+  speechRecognizer.onresult = (event) => {
+    let transcript = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript;
+    }
+    if (transcript.trim()) {
+      captionText.textContent = transcript;
+    }
+  };
+
+  speechRecognizer.onerror = () => {
+    captionText.textContent = "Live CC Active (Waiting for audio)";
+  };
+
+  speechRecognizer.onend = () => {
+    if (captionsEnabled) {
+      try { speechRecognizer.start(); } catch(e){}
+    }
+  };
+
+  try {
+    speechRecognizer.start();
+  } catch(e) {
+    liveCaptionOverlay.classList.remove('hidden');
+    captionText.textContent = "Live CC Active";
+  }
+}
+
+// Brand Header Reset to Home
 brandLogo.addEventListener('click', goHome);
 brandLogo.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === ' ') {
@@ -153,7 +260,6 @@ function navigateCategoryChannel(direction) {
 
   const nextChannel = activeCategoryList[currentChannelIndex];
   
-  // Ensure target channel element exists in the DOM if it's beyond rendered chunk
   while (renderedCount <= currentChannelIndex && renderedCount < activeCategoryList.length) {
     appendMoreChannels();
   }
@@ -162,7 +268,6 @@ function navigateCategoryChannel(direction) {
   playChannel(nextChannel, targetElement, currentChannelIndex, true);
 }
 
-// Optimized parsing for massive playlists (e.g., iptv-org index.m3u)
 async function fetchAndParsePlaylist(url) {
   statusBar.textContent = 'Downloading iptv-org playlist...';
   channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Parsing channels...</li>';
@@ -174,7 +279,6 @@ async function fetchAndParsePlaylist(url) {
     
     statusBar.textContent = 'Building directory...';
     
-    // Asynchronous non-blocking chunk parsing
     setTimeout(() => {
       const urlLang = detectLanguageFromUrl(url);
       const parsedChannels = fastM3UParse(m3uText, urlLang);
@@ -370,6 +474,10 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
         onChange: (q) => { if (hlsPlayer) hlsPlayer.currentLevel = q; }
       };
 
+      if (captionsEnabled) {
+        enableEnglishCaptions();
+      }
+
       const playPromise = videoPlayer.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
@@ -403,6 +511,7 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
 
   } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
     videoPlayer.src = channel.url;
+    if (captionsEnabled) enableEnglishCaptions();
     videoPlayer.play().then(() => {
       statusBar.textContent = 'Broadcasting';
     }).catch(() => {

@@ -98,7 +98,7 @@ body {
 
 .select-wrapper {
   position: relative;
-  width: 38%;
+  width: 42%;
 }
 
 .select-chevron {
@@ -132,7 +132,7 @@ select {
 .input-group {
   display: flex;
   gap: 8px;
-  width: 62%;
+  width: 58%;
 }
 
 select:focus, input[type="text"]:focus {
@@ -213,7 +213,6 @@ select:focus, input[type="text"]:focus {
   box-sizing: border-box;
 }
 
-/* Container Viewport Scale */
 .player-container {
   width: 100%;
   max-width: 1280px;
@@ -453,7 +452,6 @@ select:focus, input[type="text"]:focus {
 .channel-directory::-webkit-scrollbar-thumb { background: var(--bg-surface-elevated); border-radius: 4px; }
 .channel-directory::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
 
-/* Responsive Mobile Layout */
 @media (max-width: 1023px) {
   body {
     overflow-y: auto;

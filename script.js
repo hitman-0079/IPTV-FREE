@@ -11,10 +11,10 @@ let plyrInstance = null;
 let userVolume = 1;
 let isUserMuted = false;
 
-// Fast Background Channel Scanner State
+// Continuous 24/7 Background Channel Scanner State
 let brokenUrls = new Set();
 let scannedUrls = new Set();
-let isScanning = false;
+let scannerLoopActive = false;
 let scanQueue = [];
 
 const RENDER_CHUNK_SIZE = 100;
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     videoPlayer.muted = isUserMuted;
   });
 
-  // Automatically adjust orientation when entering or exiting fullscreen
+  // Automatically switch screen orientation to landscape on fullscreen
   plyrInstance.on('enterfullscreen', () => {
     autoLockOrientation('landscape');
   });
@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
   autoInitializeApp();
 });
 
-// Fallback listener for native fullscreen changes across browsers
+// Fallback listener for native browser fullscreen changes
 document.addEventListener('fullscreenchange', handleNativeFullscreenChange);
 document.addEventListener('webkitfullscreenchange', handleNativeFullscreenChange);
 
@@ -143,15 +143,59 @@ async function autoInitializeApp() {
 }
 
 /* ========================================================= */
-/* BACKGROUND SCANNER & AUTO-HIDE BROKEN CHANNELS             */
+/* CONTINUOUS 24/7 BACKGROUND SCANNER                        */
 /* ========================================================= */
 
 function startBackgroundScanner() {
   scanQueue = [...channels];
   
-  if (!isScanning) {
-    isScanning = true;
-    processScanQueue();
+  if (!scannerLoopActive) {
+    scannerLoopActive = true;
+    continuousScannerLoop();
+  }
+}
+
+async function continuousScannerLoop() {
+  const BATCH_SIZE = 15;        // Concurrent stream checks per batch
+  const BATCH_DELAY_MS = 200;   // Delay between batches to keep UI silky smooth (0.2s)
+  const CYCLE_REST_MS = 10000;  // Rest delay when 100% of channels have been checked (10s)
+
+  while (scannerLoopActive) {
+    // When finished testing all channels, pause 10s and restart the verification cycle
+    if (scanQueue.length === 0) {
+      scannedUrls.clear(); 
+      scanQueue = [...channels];
+      await new Promise(resolve => setTimeout(resolve, CYCLE_REST_MS));
+      continue;
+    }
+
+    const batch = [];
+    while (batch.length < BATCH_SIZE && scanQueue.length > 0) {
+      const channel = scanQueue.shift();
+      if (!scannedUrls.has(channel.url)) {
+        scannedUrls.add(channel.url);
+        batch.push(channel);
+      }
+    }
+
+    if (batch.length > 0) {
+      await Promise.all(batch.map(async (channel) => {
+        const isOnline = await checkStreamHealth(channel.url);
+        
+        // Hide channel if offline
+        if (!isOnline && !brokenUrls.has(channel.url)) {
+          brokenUrls.add(channel.url);
+          throttledFilterChannels(); 
+        } 
+        // Re-enable channel if it comes back online
+        else if (isOnline && brokenUrls.has(channel.url)) {
+          brokenUrls.delete(channel.url);
+          throttledFilterChannels();
+        }
+      }));
+    }
+
+    await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
   }
 }
 
@@ -161,36 +205,7 @@ function throttledFilterChannels() {
   renderThrottleTimeout = setTimeout(() => {
     filterChannels();
     renderThrottleTimeout = null;
-  }, 400);
-}
-
-async function processScanQueue() {
-  const BATCH_SIZE = 15; // Scan 15 streams concurrently in background
-
-  while (scanQueue.length > 0) {
-    const batch = [];
-    
-    while (batch.length < BATCH_SIZE && scanQueue.length > 0) {
-      const channel = scanQueue.shift();
-      if (!scannedUrls.has(channel.url)) {
-        scannedUrls.add(channel.url);
-        batch.push(channel);
-      }
-    }
-
-    if (batch.length === 0) continue;
-
-    await Promise.all(batch.map(async (channel) => {
-      const isOnline = await checkStreamHealth(channel.url);
-      if (!isOnline) {
-        brokenUrls.add(channel.url);
-        throttledFilterChannels(); 
-      }
-    }));
-  }
-
-  isScanning = false;
-  filterChannels();
+  }, 500);
 }
 
 function checkStreamHealth(url) {

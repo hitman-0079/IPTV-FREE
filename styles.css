@@ -65,16 +65,41 @@ html {
   font-weight: 700;
 }
 
+/* HEADER SEARCH BAR */
+.main-search-bar {
+  flex: 1;
+  min-width: 200px;
+  max-width: 380px;
+}
+
+.main-search-bar input {
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid #0284c7;
+  background-color: #1f2937;
+  color: #f9fafb;
+  font-size: 0.88rem;
+  outline: none;
+  box-shadow: 0 0 8px rgba(2, 132, 199, 0.2);
+  transition: all 0.2s ease;
+}
+
+.main-search-bar input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+}
+
 .playlist-controls {
   display: flex;
   gap: 8px;
   flex-grow: 1;
-  max-width: 800px;
+  max-width: 500px;
 }
 
 .playlist-controls select,
 .custom-input-group input {
-  padding: 10px 12px;
+  padding: 9px 12px;
   border-radius: 8px;
   border: 1px solid #374151;
   background-color: #1f2937;
@@ -84,7 +109,7 @@ html {
 }
 
 .playlist-controls select {
-  flex-basis: 180px;
+  flex-basis: 160px;
 }
 
 .custom-input-group {
@@ -99,7 +124,7 @@ html {
 }
 
 .playlist-controls button {
-  padding: 10px 14px;
+  padding: 9px 14px;
   border-radius: 8px;
   border: none;
   background-color: #0284c7;
@@ -240,15 +265,9 @@ html {
   gap: 8px;
 }
 
-.filter-controls {
-  display: flex;
-  gap: 8px;
-}
-
-.filter-controls select,
-.filter-controls input {
-  flex: 1;
-  padding: 10px;
+.filter-controls select {
+  width: 100%;
+  padding: 9px 12px;
   border-radius: 8px;
   border: 1px solid #374151;
   background-color: #1f2937;
@@ -306,9 +325,16 @@ html {
     padding: 8px 12px;
   }
 
+  .main-search-bar {
+    max-width: 100%;
+    width: 100%;
+    order: 2;
+  }
+
   .playlist-controls {
     flex-direction: column;
     width: 100%;
+    order: 3;
   }
 
   .playlist-controls select {

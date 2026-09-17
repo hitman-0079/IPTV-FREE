@@ -11,8 +11,8 @@ let plyrInstance = null;
 let userVolume = 1;
 let isUserMuted = false;
 
-// Continuous 24/7 Background Channel Scanner State
-let brokenUrls = new Set();
+// Persistent 24/7 Background Channel Scanner State (Saved across refreshes)
+let brokenUrls = new Set(JSON.parse(localStorage.getItem('streamflix_offline_urls') || '[]'));
 let scannedUrls = new Set();
 let scannerLoopActive = false;
 let scanQueue = [];
@@ -61,6 +61,14 @@ const prevBtn = document.getElementById('prevBtn');
 const stopBtn = document.getElementById('stopBtn');
 const nextBtn = document.getElementById('nextBtn');
 const channelCountEl = document.getElementById('channelCount');
+
+/* ========================================================= */
+/* PERSISTENCE HELPER                                       */
+/* ========================================================= */
+
+function saveOfflineChannels() {
+  localStorage.setItem('streamflix_offline_urls', JSON.stringify([...brokenUrls]));
+}
 
 /* ========================================================= */
 /* AUTOMATIC INIT ON DOM LOAD                                */
@@ -157,11 +165,11 @@ function startBackgroundScanner() {
 
 async function continuousScannerLoop() {
   const BATCH_SIZE = 15;        // Concurrent stream checks per batch
-  const BATCH_DELAY_MS = 200;   // Delay between batches to keep UI silky smooth (0.2s)
+  const BATCH_DELAY_MS = 200;   // Delay between batches to keep UI smooth (0.2s)
   const CYCLE_REST_MS = 10000;  // Rest delay when 100% of channels have been checked (10s)
 
   while (scannerLoopActive) {
-    // When finished testing all channels, pause 10s and restart the verification cycle
+    // When finished testing all channels, pause 10s and restart verification cycle
     if (scanQueue.length === 0) {
       scannedUrls.clear(); 
       scanQueue = [...channels];
@@ -182,14 +190,16 @@ async function continuousScannerLoop() {
       await Promise.all(batch.map(async (channel) => {
         const isOnline = await checkStreamHealth(channel.url);
         
-        // Hide channel if offline
+        // Hide channel & update localStorage if offline
         if (!isOnline && !brokenUrls.has(channel.url)) {
           brokenUrls.add(channel.url);
+          saveOfflineChannels();
           throttledFilterChannels(); 
         } 
-        // Re-enable channel if it comes back online
+        // Re-enable channel & update localStorage if stream recovers
         else if (isOnline && brokenUrls.has(channel.url)) {
           brokenUrls.delete(channel.url);
+          saveOfflineChannels();
           throttledFilterChannels();
         }
       }));
@@ -309,7 +319,7 @@ function navigateCategoryChannel(direction) {
 }
 
 async function fetchAndParsePlaylist(url) {
-  brokenUrls.clear();
+  // brokenUrls is NOT cleared here to preserve offline state across refreshes
   scannedUrls.clear();
 
   statusBar.textContent = 'Auto-fetching live channels...';
@@ -544,6 +554,7 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
     hlsPlayer.on(Hls.Events.ERROR, function(event, data) {
       if (data.fatal) {
         brokenUrls.add(channel.url);
+        saveOfflineChannels();
         filterChannels();
 
         switch (data.type) {

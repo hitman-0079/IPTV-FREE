@@ -7,11 +7,9 @@ let searchTimeout = null;
 let hlsPlayer = null;
 let plyrInstance = null;
 
-// Audio Volume States
 let userVolume = 1;
 let isUserMuted = false;
 
-// Persistent Scanner State across refreshes
 let brokenUrls = new Set(JSON.parse(localStorage.getItem('streamflix_offline_urls') || '[]'));
 let scannerLoopActive = false;
 let currentScanIndex = parseInt(localStorage.getItem('streamflix_scan_index') || '0', 10);
@@ -22,7 +20,6 @@ let renderedCount = 0;
 const isMobileDevice = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const DEFAULT_PLAYLIST_URL = "https://iptv-org.github.io/iptv/index.m3u";
 
-// Fallback Stream
 const DEFAULT_FALLBACK_CHANNEL = {
   name: "ABC News Live",
   category: "News",
@@ -49,6 +46,7 @@ const ISO_LANGUAGES = {
 // DOM Elements
 const brandLogo = document.getElementById('brandLogo');
 const playlistSelect = document.getElementById('playlistSelect');
+const categoryFilter = document.getElementById('categoryFilter');
 const m3uUrlInput = document.getElementById('m3uUrlInput');
 const loadBtn = document.getElementById('loadBtn');
 const channelListEl = document.getElementById('channelList');
@@ -61,10 +59,7 @@ const stopBtn = document.getElementById('stopBtn');
 const nextBtn = document.getElementById('nextBtn');
 const channelCountEl = document.getElementById('channelCount');
 
-/* ========================================================= */
-/* PERSISTENCE HELPERS                                       */
-/* ========================================================= */
-
+/* PERSISTENCE HELPERS */
 function saveOfflineChannels() {
   localStorage.setItem('streamflix_offline_urls', JSON.stringify([...brokenUrls]));
 }
@@ -73,20 +68,11 @@ function saveScanProgress(index) {
   localStorage.setItem('streamflix_scan_index', index.toString());
 }
 
-/* ========================================================= */
-/* AUTOMATIC INIT ON DOM LOAD                                */
-/* ========================================================= */
-
+/* INITIALIZATION */
 document.addEventListener('DOMContentLoaded', () => {
   plyrInstance = new Plyr(videoPlayer, {
     controls: ['play-large', 'play', 'mute', 'volume', 'current-time', 'settings', 'pip', 'fullscreen'],
-    autoplay: true,
-    quality: {
-      default: -1,
-      options: [-1],
-      forced: true,
-      onChange: (q) => { if (hlsPlayer) hlsPlayer.currentLevel = q; }
-    }
+    autoplay: true
   });
 
   plyrInstance.on('volumechange', () => {
@@ -96,65 +82,23 @@ document.addEventListener('DOMContentLoaded', () => {
     videoPlayer.muted = isUserMuted;
   });
 
-  plyrInstance.on('enterfullscreen', () => {
-    autoLockOrientation('landscape');
-  });
-
-  plyrInstance.on('exitfullscreen', () => {
-    autoUnlockOrientation();
-  });
-
   channelListEl.addEventListener('scroll', () => {
     if (channelListEl.scrollTop + channelListEl.clientHeight >= channelListEl.scrollHeight - 200) {
       appendMoreChannels();
     }
   });
 
+  categoryFilter.addEventListener('change', filterChannels);
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
   autoInitializeApp();
 });
-
-document.addEventListener('fullscreenchange', handleNativeFullscreenChange);
-document.addEventListener('webkitfullscreenchange', handleNativeFullscreenChange);
-
-function handleNativeFullscreenChange() {
-  const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  if (isFullscreen) {
-    autoLockOrientation('landscape');
-  } else {
-    autoUnlockOrientation();
-  }
-}
-
-async function autoLockOrientation(orientationType) {
-  if (isMobileDevice && screen.orientation && typeof screen.orientation.lock === 'function') {
-    try {
-      await screen.orientation.lock(orientationType);
-    } catch (err) {
-      console.warn("Screen orientation lock prevented:", err);
-    }
-  }
-}
-
-function autoUnlockOrientation() {
-  if (screen.orientation && typeof screen.orientation.unlock === 'function') {
-    try {
-      screen.orientation.unlock();
-    } catch (err) {
-      // Ignore unlock exceptions
-    }
-  }
-}
 
 async function autoInitializeApp() {
   statusBar.textContent = 'Loading channel directory...';
   fetchAndParsePlaylist(playlistSelect.value);
 }
 
-/* ========================================================= */
-/* PERSISTENT CONTINUOUS BACKGROUND LOOP SCANNER             */
-/* ========================================================= */
-
+/* BACKGROUND SCANNER */
 function startBackgroundScanner() {
   if (!scannerLoopActive && channels.length > 0) {
     scannerLoopActive = true;
@@ -163,9 +107,9 @@ function startBackgroundScanner() {
 }
 
 async function continuousScannerLoop() {
-  const BATCH_SIZE = 10;        // Concurrent stream health checks
-  const BATCH_DELAY_MS = 300;   // Delay between batches to ensure lightweight execution
-  const CYCLE_REST_MS = 5000;   // Rest delay before repeating from start when entire list completes
+  const BATCH_SIZE = 10;
+  const BATCH_DELAY_MS = 300;
+  const CYCLE_REST_MS = 5000;
 
   while (scannerLoopActive) {
     if (channels.length === 0) {
@@ -173,7 +117,6 @@ async function continuousScannerLoop() {
       continue;
     }
 
-    // Wrap around to start if scan index exceeds available channel count
     if (currentScanIndex >= channels.length) {
       currentScanIndex = 0;
       saveScanProgress(0);
@@ -181,28 +124,22 @@ async function continuousScannerLoop() {
       continue;
     }
 
-    // Fetch next batch based on saved progress index
     const batch = channels.slice(currentScanIndex, currentScanIndex + BATCH_SIZE);
 
     if (batch.length > 0) {
       await Promise.all(batch.map(async (channel) => {
         const isOnline = await checkStreamHealth(channel.url);
-        
-        // Channel offline: add to storage & update UI
         if (!isOnline && !brokenUrls.has(channel.url)) {
           brokenUrls.add(channel.url);
           saveOfflineChannels();
           throttledFilterChannels(); 
-        } 
-        // Channel back online: remove from storage & update UI
-        else if (isOnline && brokenUrls.has(channel.url)) {
+        } else if (isOnline && brokenUrls.has(channel.url)) {
           brokenUrls.delete(channel.url);
           saveOfflineChannels();
           throttledFilterChannels();
         }
       }));
 
-      // Update and save current scanner cursor position
       currentScanIndex += batch.length;
       saveScanProgress(currentScanIndex);
     }
@@ -223,51 +160,26 @@ function throttledFilterChannels() {
 function checkStreamHealth(url) {
   return new Promise((resolve) => {
     const controller = new AbortController();
-    
     const timeoutId = setTimeout(() => {
       controller.abort();
       resolve(false);
     }, 2500);
 
-    fetch(url, { 
-      method: 'HEAD', 
-      mode: 'no-cors',
-      signal: controller.signal 
-    })
-      .then(() => {
-        clearTimeout(timeoutId);
-        resolve(true);
-      })
-      .catch(() => {
-        clearTimeout(timeoutId);
-        resolve(false);
-      });
+    fetch(url, { method: 'HEAD', mode: 'no-cors', signal: controller.signal })
+      .then(() => { clearTimeout(timeoutId); resolve(true); })
+      .catch(() => { clearTimeout(timeoutId); resolve(false); });
   });
 }
 
-/* ========================================================= */
-/* M3U HANDLING & PLAYLIST CONTROLS                          */
-/* ========================================================= */
-
+/* PLAYLIST & CATEGORY MANAGEMENT */
 brandLogo.addEventListener('click', goHome);
-brandLogo.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault();
-    goHome();
-  }
-});
 
 function goHome() {
-  if (skipTimer) {
-    clearTimeout(skipTimer);
-    skipTimer = null;
-  }
-  
+  if (skipTimer) clearTimeout(skipTimer);
   searchInput.value = '';
   m3uUrlInput.value = '';
+  categoryFilter.value = 'ALL';
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
-
-  window.scrollTo({ top: 0, behavior: 'smooth' });
   fetchAndParsePlaylist(DEFAULT_PLAYLIST_URL);
 }
 
@@ -294,28 +206,20 @@ prevBtn.addEventListener('click', () => navigateCategoryChannel(-1));
 nextBtn.addEventListener('click', () => navigateCategoryChannel(1));
 
 stopBtn.addEventListener('click', () => {
-  if (skipTimer) {
-    clearTimeout(skipTimer);
-    skipTimer = null;
-  }
+  if (skipTimer) clearTimeout(skipTimer);
   videoPlayer.pause();
-  statusBar.textContent = 'Auto-skip stopped';
+  statusBar.textContent = 'Auto-skip halted';
 });
 
 function navigateCategoryChannel(direction) {
   if (activeCategoryList.length === 0) return;
-  if (skipTimer) {
-    clearTimeout(skipTimer);
-    skipTimer = null;
-  }
+  if (skipTimer) clearTimeout(skipTimer);
 
   currentChannelIndex += direction;
-
   if (currentChannelIndex >= activeCategoryList.length) currentChannelIndex = 0;
   if (currentChannelIndex < 0) currentChannelIndex = activeCategoryList.length - 1;
 
   const nextChannel = activeCategoryList[currentChannelIndex];
-  
   while (renderedCount <= currentChannelIndex && renderedCount < activeCategoryList.length) {
     appendMoreChannels();
   }
@@ -325,51 +229,55 @@ function navigateCategoryChannel(direction) {
 }
 
 async function fetchAndParsePlaylist(url) {
-  statusBar.textContent = 'Auto-fetching live channels...';
-  channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Syncing full channel list...</li>';
+  statusBar.textContent = 'Loading directory...';
+  channelListEl.innerHTML = '<li style="padding: 20px; color: #9ca3af; text-align: center;">Syncing stream directory...</li>';
 
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error('Network error');
     const m3uText = await response.text();
     
-    statusBar.textContent = 'Parsing directory...';
-    
     setTimeout(() => {
       const urlLang = detectLanguageFromUrl(url);
-      const parsedChannels = fastM3UParse(m3uText, urlLang);
+      channels = fastM3UParse(m3uText, urlLang);
 
-      if (parsedChannels.length > 0) {
-        channels = parsedChannels;
-      } else {
-        channels = [DEFAULT_FALLBACK_CHANNEL];
-      }
+      if (channels.length === 0) channels = [DEFAULT_FALLBACK_CHANNEL];
 
+      populateCategoryFilter();
       filterChannels();
-      statusBar.textContent = `${channels.length.toLocaleString()} channels loaded`;
 
       const firstChannel = activeCategoryList[0] || channels[0];
-      const firstElement = channelListEl.children[0];
-      playChannel(firstChannel, firstElement, 0, false);
-
+      playChannel(firstChannel, channelListEl.children[0], 0, false);
       startBackgroundScanner();
-
     }, 20);
 
   } catch (error) {
     channels = [DEFAULT_FALLBACK_CHANNEL];
+    populateCategoryFilter();
     filterChannels();
     playChannel(DEFAULT_FALLBACK_CHANNEL, channelListEl.children[0], 0, false);
-    statusBar.textContent = 'Fallback stream loaded';
+    statusBar.textContent = 'Loaded fallback channel';
   }
+}
+
+function populateCategoryFilter() {
+  const categories = new Set();
+  channels.forEach(c => categories.add(c.category || 'General'));
+
+  const sorted = Array.from(categories).sort();
+  categoryFilter.innerHTML = '<option value="ALL">All Categories</option>';
+
+  sorted.forEach(cat => {
+    const option = document.createElement('option');
+    option.value = cat;
+    option.textContent = cat;
+    categoryFilter.appendChild(option);
+  });
 }
 
 function detectLanguageFromUrl(url) {
   const match = url.match(/languages\/([a-z]{2,3})\.m3u/i);
-  if (match && ISO_LANGUAGES[match[1].toLowerCase()]) {
-    return ISO_LANGUAGES[match[1].toLowerCase()];
-  }
-  return null;
+  return (match && ISO_LANGUAGES[match[1].toLowerCase()]) ? ISO_LANGUAGES[match[1].toLowerCase()] : null;
 }
 
 function fastM3UParse(m3uData, defaultLanguage = null) {
@@ -384,25 +292,13 @@ function fastM3UParse(m3uData, defaultLanguage = null) {
       category = groupMatch ? groupMatch[1] : 'General';
 
       const langMatch = line.match(/tvg-language="([^"]+)"/i) || line.match(/language="([^"]+)"/i);
-      if (langMatch) {
-        const rawLang = langMatch[1].toLowerCase();
-        language = ISO_LANGUAGES[rawLang] || capitalize(rawLang);
-      } else if (defaultLanguage) {
-        language = defaultLanguage;
-      } else {
-        language = 'Global';
-      }
+      language = langMatch ? (ISO_LANGUAGES[langMatch[1].toLowerCase()] || capitalize(langMatch[1])) : (defaultLanguage || 'Global');
 
       const commaIdx = line.indexOf(',');
-      name = commaIdx !== -1 ? line.substring(commaIdx + 1) : 'Unknown Broadcast';
+      name = commaIdx !== -1 ? line.substring(commaIdx + 1) : 'Live Broadcast';
     } else if (line.length > 0 && !line.startsWith('#')) {
       if (name) {
-        result.push({
-          name: name.trim(),
-          category: category.trim(),
-          language: language.trim(),
-          url: line
-        });
+        result.push({ name: name.trim(), category: category.trim(), language: language.trim(), url: line });
         name = '';
       }
     }
@@ -416,29 +312,33 @@ function capitalize(str) {
 
 function filterChannels() {
   const query = searchInput.value.trim().toLowerCase();
+  const selectedCategory = categoryFilter.value;
   
   let pool = channels.filter(c => !brokenUrls.has(c.url));
 
-  if (!query) {
-    activeCategoryList = pool;
-  } else {
-    activeCategoryList = pool.filter(c => 
+  if (selectedCategory !== 'ALL') {
+    pool = pool.filter(c => c.category === selectedCategory);
+  }
+
+  if (query) {
+    pool = pool.filter(c => 
       c.name.toLowerCase().includes(query) || 
       c.category.toLowerCase().includes(query) ||
       c.language.toLowerCase().includes(query)
     );
   }
 
+  activeCategoryList = pool;
   renderedCount = 0;
   channelListEl.innerHTML = '';
   
   if (channelCountEl) {
-    const hiddenCount = brokenUrls.size;
-    channelCountEl.textContent = `Channels: ${activeCategoryList.length.toLocaleString()}` + (hiddenCount > 0 ? ` (${hiddenCount} offline hidden)` : '');
+    channelCountEl.textContent = `Channels: ${activeCategoryList.length.toLocaleString()}` + 
+      (brokenUrls.size > 0 ? ` (${brokenUrls.size} offline hidden)` : '');
   }
 
   if (activeCategoryList.length === 0) {
-    channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">No channels available...</li>';
+    channelListEl.innerHTML = '<li style="padding: 20px; color: #9ca3af; text-align: center;">No matching streams found</li>';
     return;
   }
 
@@ -463,11 +363,8 @@ function appendMoreChannels() {
       </div>
     `;
 
-    const index = i;
-    li.addEventListener('click', () => {
-      playChannel(channel, li, index, true);
-    });
-
+    const idx = i;
+    li.addEventListener('click', () => playChannel(channel, li, idx, true));
     fragment.appendChild(li);
   }
 
@@ -475,16 +372,9 @@ function appendMoreChannels() {
   renderedCount = nextChunkLimit;
 }
 
-/* ========================================================= */
-/* STREAM PLAYER EXECUTION                                   */
-/* ========================================================= */
-
+/* MEDIA PLAYER EXECUTION */
 function playChannel(channel, element, categoryIndex, isUserClicked = true) {
-  if (skipTimer) {
-    clearTimeout(skipTimer);
-    skipTimer = null;
-  }
-
+  if (skipTimer) clearTimeout(skipTimer);
   currentChannelIndex = categoryIndex;
 
   const prevActive = channelListEl.querySelector('.active');
@@ -492,10 +382,6 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
   if (element) {
     element.classList.add('active');
     element.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }
-
-  if (isUserClicked && window.innerWidth < 1024) {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   currentChannelName.innerHTML = `${channel.name} <span class="header-lang-tag">${channel.language}</span>`;
@@ -506,69 +392,31 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
     hlsPlayer = null;
   }
 
-  if (plyrInstance) {
-    plyrInstance.volume = userVolume;
-    plyrInstance.muted = isUserMuted;
-  }
-  videoPlayer.volume = userVolume;
-  videoPlayer.muted = isUserMuted;
-
   if (Hls.isSupported()) {
     hlsPlayer = new Hls({
       enableWorker: true,
       lowLatencyMode: true,
-      maxBufferLength: isMobileDevice ? 10 : 15,
-      maxMaxBufferLength: isMobileDevice ? 20 : 30,
-      maxBufferSize: (isMobileDevice ? 15 : 30) * 1024 * 1024,
-      backBufferLength: 8,
       manifestLoadingTimeOut: 4000,
-      manifestLoadingMaxRetry: 1,
-      fragLoadingTimeOut: 5000,
-      fragLoadingMaxRetry: 2
+      fragLoadingTimeOut: 5000
     });
     
     hlsPlayer.loadSource(channel.url);
     hlsPlayer.attachMedia(videoPlayer);
 
-    hlsPlayer.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
-      const availableQualities = data.levels.map(l => l.height).filter(Boolean);
-      availableQualities.unshift(-1);
-
-      plyrInstance.config.quality = {
-        default: -1,
-        options: availableQualities,
-        forced: true,
-        onChange: (q) => { if (hlsPlayer) hlsPlayer.currentLevel = q; }
-      };
-
-      const playPromise = videoPlayer.play();
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          statusBar.textContent = 'Broadcasting';
-        }).catch(() => {
-          if (plyrInstance) plyrInstance.muted = true;
-          videoPlayer.muted = true;
-          videoPlayer.play();
-          statusBar.textContent = 'Broadcasting (Muted)';
-        });
-      }
+    hlsPlayer.on(Hls.Events.MANIFEST_PARSED, function() {
+      videoPlayer.play().then(() => {
+        statusBar.textContent = 'Broadcasting';
+      }).catch(() => {
+        videoPlayer.muted = true;
+        videoPlayer.play();
+        statusBar.textContent = 'Broadcasting (Muted)';
+      });
     });
 
     hlsPlayer.on(Hls.Events.ERROR, function(event, data) {
       if (data.fatal) {
-        switch (data.type) {
-          case Hls.ErrorTypes.NETWORK_ERROR:
-            statusBar.textContent = 'Stream error. Auto-skipping to next...';
-            skipTimer = setTimeout(() => navigateCategoryChannel(1), 1200);
-            break;
-          case Hls.ErrorTypes.MEDIA_ERROR:
-            hlsPlayer.recoverMediaError();
-            break;
-          default:
-            statusBar.textContent = 'Playback error. Auto-skipping...';
-            skipTimer = setTimeout(() => navigateCategoryChannel(1), 1200);
-            break;
-        }
+        statusBar.textContent = 'Stream error. Skipping...';
+        skipTimer = setTimeout(() => navigateCategoryChannel(1), 1200);
       }
     });
 
@@ -576,11 +424,6 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
     videoPlayer.src = channel.url;
     videoPlayer.play().then(() => {
       statusBar.textContent = 'Broadcasting';
-    }).catch(() => {
-      if (plyrInstance) plyrInstance.muted = true;
-      videoPlayer.muted = true;
-      videoPlayer.play();
-      statusBar.textContent = 'Broadcasting (Muted)';
     });
   }
 }

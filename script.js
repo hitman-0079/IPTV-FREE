@@ -62,7 +62,12 @@ const stopBtn = document.getElementById('stopBtn');
 const nextBtn = document.getElementById('nextBtn');
 const channelCountEl = document.getElementById('channelCount');
 
+/* ========================================================= */
+/* AUTOMATIC INIT ON DOM LOAD                                */
+/* ========================================================= */
+
 document.addEventListener('DOMContentLoaded', () => {
+  // 1. Initialize Video Player UI
   plyrInstance = new Plyr(videoPlayer, {
     controls: ['play-large', 'play', 'mute', 'volume', 'current-time', 'settings', 'pip', 'fullscreen'],
     autoplay: true,
@@ -81,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     videoPlayer.muted = isUserMuted;
   });
 
+  // 2. Infinite scroll directory
   channelListEl.addEventListener('scroll', () => {
     if (channelListEl.scrollTop + channelListEl.clientHeight >= channelListEl.scrollHeight - 200) {
       appendMoreChannels();
@@ -89,11 +95,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
   
-  // Pre-load known online streams first for instant load time
-  preloadOnlineStreams().then(() => {
-    fetchAndParsePlaylist(playlistSelect.value);
-  });
+  // 3. Fully Automatic Loading Routine
+  autoInitializeApp();
 });
+
+async function autoInitializeApp() {
+  statusBar.textContent = 'Pre-loading online channels...';
+  
+  // First, pre-fetch working stream lists automatically
+  await preloadOnlineStreams();
+
+  // Next, fetch, parse, render, and automatically start playing the first stream
+  fetchAndParsePlaylist(playlistSelect.value);
+}
 
 /* ========================================================= */
 /* FAST PRE-LOADER & BACKGROUND SCANNER                      */
@@ -105,14 +119,14 @@ async function preloadOnlineStreams() {
     if (!res.ok) return;
     const streamsData = await res.json();
     
-    // Add all active stream URLs from iptv-org API directly into verified set
+    // Auto populate online streams into verified cache
     streamsData.forEach(s => {
       if (s.url && s.status === 'online') {
         verifiedOnlineUrls.add(s.url);
       }
     });
   } catch (err) {
-    // Graceful fallback if API fails
+    // Silent fail over to standard loading if API drops
   }
 }
 
@@ -145,7 +159,6 @@ async function processScanQueue() {
       if (!scannedUrls.has(channel.url)) {
         scannedUrls.add(channel.url);
         
-        // If already preloaded as online, skip HTTP re-test
         if (verifiedOnlineUrls.has(channel.url)) {
           continue;
         }
@@ -270,8 +283,8 @@ function navigateCategoryChannel(direction) {
 }
 
 async function fetchAndParsePlaylist(url) {
-  statusBar.textContent = 'Downloading iptv-org playlist...';
-  channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Loading pre-verified channels...</li>';
+  statusBar.textContent = 'Auto-fetching live channels...';
+  channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Automatically syncing directory...</li>';
 
   try {
     const response = await fetch(url);
@@ -293,6 +306,7 @@ async function fetchAndParsePlaylist(url) {
       filterChannels();
       statusBar.textContent = `${channels.length.toLocaleString()} channels loaded`;
 
+      // Auto play the first available channel immediately
       const firstChannel = activeCategoryList[0] || channels[0];
       const firstElement = channelListEl.children[0];
       playChannel(firstChannel, firstElement, 0, false);
@@ -381,11 +395,11 @@ function filterChannels() {
   channelListEl.innerHTML = '';
   
   if (channelCountEl) {
-    channelCountEl.textContent = `Verified Online Channels: ${activeCategoryList.length.toLocaleString()}`;
+    channelCountEl.textContent = `Active Live Channels: ${activeCategoryList.length.toLocaleString()}`;
   }
 
   if (activeCategoryList.length === 0) {
-    channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Fetching online streams...</li>';
+    channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Scanning active streams...</li>';
     return;
   }
 
@@ -489,6 +503,7 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
         playPromise.then(() => {
           statusBar.textContent = 'Broadcasting';
         }).catch(() => {
+          // Autoplay protection fallback (muted playback if blocked by browser policy)
           if (plyrInstance) plyrInstance.muted = true;
           videoPlayer.muted = true;
           videoPlayer.play();

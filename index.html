@@ -2,10 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>StreamFlix Pro Mobile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StreamFlix Live</title>
   <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -14,62 +12,35 @@
 <body>
   <div class="app-container">
     <header class="navbar">
-      <div class="brand">
-        <div class="logo" id="brandLogo" tabindex="0">
-          <span class="logo-accent">STREAM</span>FLIX <span class="badge-pro">PRO</span>
-        </div>
-      </div>
+      <div class="logo" id="brandLogo" tabindex="0">StreamFlix</div>
       <div class="playlist-controls">
-        <select id="playlistSelect" aria-label="Select Playlist Preset">
-          <optgroup label="Global Directories">
-            <option value="https://iptv-org.github.io/iptv/index.m3u">IPTV-Org (Global Master)</option>
-          </optgroup>
-          <optgroup label="Categories">
-            <option value="https://iptv-org.github.io/iptv/categories/news.m3u">News & Live Info</option>
-            <option value="https://iptv-org.github.io/iptv/categories/sports.m3u">Sports & Gaming</option>
-            <option value="https://iptv-org.github.io/iptv/categories/movies.m3u">Cinema & Movies</option>
-            <option value="https://iptv-org.github.io/iptv/categories/music.m3u">Music & Radios</option>
-            <option value="https://iptv-org.github.io/iptv/categories/entertainment.m3u">General Entertainment</option>
-            <option value="https://iptv-org.github.io/iptv/categories/documentary.m3u">Documentary & Culture</option>
-          </optgroup>
-          <optgroup label="Languages">
-            <option value="https://iptv-org.github.io/iptv/languages/eng.m3u">English Networks</option>
-            <option value="https://iptv-org.github.io/iptv/languages/spa.m3u">Spanish Networks</option>
-            <option value="https://iptv-org.github.io/iptv/languages/fra.m3u">French Networks</option>
-            <option value="https://iptv-org.github.io/iptv/languages/deu.m3u">German Networks</option>
-            <option value="https://iptv-org.github.io/iptv/languages/hin.m3u">Hindi Networks</option>
-          </optgroup>
-          <optgroup label="Regions">
-            <option value="https://iptv-org.github.io/iptv/countries/us.m3u">United States</option>
-            <option value="https://iptv-org.github.io/iptv/countries/uk.m3u">United Kingdom</option>
-            <option value="https://iptv-org.github.io/iptv/countries/ca.m3u">Canada</option>
-            <option value="https://iptv-org.github.io/iptv/countries/in.m3u">India</option>
-          </optgroup>
+        <select id="playlistSelect">
+          <option value="https://iptv-org.github.io/iptv/index.m3u">IPTV-Org (Global Default)</option>
+          <option value="https://iptv-org.github.io/iptv/languages/eng.m3u">English Channels</option>
+          <option value="https://iptv-org.github.io/iptv/languages/spa.m3u">Spanish Channels</option>
+          <option value="https://iptv-org.github.io/iptv/languages/fra.m3u">French Channels</option>
+          <option value="https://iptv-org.github.io/iptv/languages/deu.m3u">German Channels</option>
+          <option value="https://iptv-org.github.io/iptv/categories/news.m3u">News Category</option>
+          <option value="https://iptv-org.github.io/iptv/categories/sports.m3u">Sports Category</option>
         </select>
-        <div class="custom-input-group">
-          <input type="url" id="m3uUrlInput" placeholder="Paste custom M3U/M3U8 link..." />
-          <button id="loadBtn">Load Link</button>
-        </div>
+        <input type="text" id="m3uUrlInput" placeholder="Or enter custom M3U/M3U8 URL..." />
+        <button id="loadBtn">Load M3U</button>
       </div>
     </header>
 
     <main class="main-content">
       <section class="player-section">
-        <div class="video-container">
-          <div class="video-wrapper" id="swipeContainer">
-            <video id="videoPlayer" crossorigin playsinline webkit-playsinline></video>
-            <div id="gestureHint" class="gesture-hint">Swipe UP/DOWN to switch channels</div>
-          </div>
+        <div class="video-wrapper">
+          <video id="videoPlayer" crossorigin playsinline></video>
         </div>
-        
-        <div class="player-bar">
+        <div class="player-info">
           <div class="channel-details">
             <h2 id="currentChannelName">Select a Broadcast</h2>
-            <div id="statusBar">Status: Standby</div>
+            <div id="statusBar">Status: Ready</div>
           </div>
           <div class="playback-actions">
             <button id="prevBtn" title="Previous Channel">‹ Prev</button>
-            <button id="stopBtn" class="btn-stop" title="Stop Auto-Skip">Stop</button>
+            <button id="stopBtn" title="Stop Auto-Skip">Stop Skip</button>
             <button id="nextBtn" title="Next Channel">Next ›</button>
           </div>
         </div>
@@ -77,23 +48,8 @@
 
       <aside class="sidebar">
         <div class="sidebar-header">
-          <!-- Standalone Professional Search Bar -->
-          <div class="search-box-wrapper">
-            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="search" id="channelSearch" placeholder="Search by channel, category, language..." />
-            <button id="clearSearchBtn" class="clear-search-btn" aria-label="Clear Search">&times;</button>
-          </div>
-
-          <!-- Secondary Filter Controls -->
-          <div class="filter-controls">
-            <select id="categoryFilter" aria-label="Filter by Category">
-              <option value="ALL">All Categories</option>
-            </select>
-            <div id="channelCount">Channels: 0</div>
-          </div>
+          <input type="text" id="channelSearch" placeholder="Search channels..." />
+          <div id="channelCount">Channels: 0</div>
         </div>
         <ul id="channelList" class="channel-list"></ul>
       </aside>

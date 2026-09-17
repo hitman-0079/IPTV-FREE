@@ -12,7 +12,7 @@ let userVolume = 1;
 let isUserMuted = false;
 
 // Fast Background Channel Scanner State
-let verifiedOnlineUrls = new Set();
+let brokenUrls = new Set();
 let scannedUrls = new Set();
 let isScanning = false;
 let scanQueue = [];
@@ -67,7 +67,6 @@ const channelCountEl = document.getElementById('channelCount');
 /* ========================================================= */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. Initialize Video Player UI
   plyrInstance = new Plyr(videoPlayer, {
     controls: ['play-large', 'play', 'mute', 'volume', 'current-time', 'settings', 'pip', 'fullscreen'],
     autoplay: true,
@@ -86,7 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
     videoPlayer.muted = isUserMuted;
   });
 
-  // 2. Infinite scroll directory
   channelListEl.addEventListener('scroll', () => {
     if (channelListEl.scrollTop + channelListEl.clientHeight >= channelListEl.scrollHeight - 200) {
       appendMoreChannels();
@@ -94,44 +92,20 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
-  
-  // 3. Fully Automatic Loading Routine
   autoInitializeApp();
 });
 
 async function autoInitializeApp() {
-  statusBar.textContent = 'Pre-loading online channels...';
-  
-  // First, pre-fetch working stream lists automatically
-  await preloadOnlineStreams();
-
-  // Next, fetch, parse, render, and automatically start playing the first stream
+  statusBar.textContent = 'Loading channel directory...';
   fetchAndParsePlaylist(playlistSelect.value);
 }
 
 /* ========================================================= */
-/* FAST PRE-LOADER & BACKGROUND SCANNER                      */
+/* BACKGROUND SCANNER & AUTO-HIDE BROKEN CHANNELS             */
 /* ========================================================= */
 
-async function preloadOnlineStreams() {
-  try {
-    const res = await fetch('https://iptv-org.github.io/api/streams.json');
-    if (!res.ok) return;
-    const streamsData = await res.json();
-    
-    // Auto populate online streams into verified cache
-    streamsData.forEach(s => {
-      if (s.url && s.status === 'online') {
-        verifiedOnlineUrls.add(s.url);
-      }
-    });
-  } catch (err) {
-    // Silent fail over to standard loading if API drops
-  }
-}
-
 function startBackgroundScanner() {
-  scanQueue = [...activeCategoryList, ...channels];
+  scanQueue = [...channels];
   
   if (!isScanning) {
     isScanning = true;
@@ -145,11 +119,11 @@ function throttledFilterChannels() {
   renderThrottleTimeout = setTimeout(() => {
     filterChannels();
     renderThrottleTimeout = null;
-  }, 300);
+  }, 400);
 }
 
 async function processScanQueue() {
-  const BATCH_SIZE = 25; 
+  const BATCH_SIZE = 15; // Scan 15 streams concurrently in background
 
   while (scanQueue.length > 0) {
     const batch = [];
@@ -158,11 +132,6 @@ async function processScanQueue() {
       const channel = scanQueue.shift();
       if (!scannedUrls.has(channel.url)) {
         scannedUrls.add(channel.url);
-        
-        if (verifiedOnlineUrls.has(channel.url)) {
-          continue;
-        }
-        
         batch.push(channel);
       }
     }
@@ -171,8 +140,9 @@ async function processScanQueue() {
 
     await Promise.all(batch.map(async (channel) => {
       const isOnline = await checkStreamHealth(channel.url);
-      if (isOnline) {
-        verifiedOnlineUrls.add(channel.url);
+      if (!isOnline) {
+        // Flag broken URL and dynamically update UI/filter to hide it
+        brokenUrls.add(channel.url);
         throttledFilterChannels(); 
       }
     }));
@@ -188,8 +158,8 @@ function checkStreamHealth(url) {
     
     const timeoutId = setTimeout(() => {
       controller.abort();
-      resolve(false);
-    }, 1800);
+      resolve(false); // Fail stream on timeout
+    }, 2500);
 
     fetch(url, { 
       method: 'HEAD', 
@@ -208,7 +178,7 @@ function checkStreamHealth(url) {
 }
 
 /* ========================================================= */
-/* APP LOGIC & M3U HANDLING                                  */
+/* M3U HANDLING & PLAYLIST CONTROLS                          */
 /* ========================================================= */
 
 brandLogo.addEventListener('click', goHome);
@@ -283,15 +253,19 @@ function navigateCategoryChannel(direction) {
 }
 
 async function fetchAndParsePlaylist(url) {
+  // Clear scanning cache for new playlist
+  brokenUrls.clear();
+  scannedUrls.clear();
+
   statusBar.textContent = 'Auto-fetching live channels...';
-  channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Automatically syncing directory...</li>';
+  channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Syncing full channel list...</li>';
 
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error('Network error');
     const m3uText = await response.text();
     
-    statusBar.textContent = 'Building directory...';
+    statusBar.textContent = 'Parsing directory...';
     
     setTimeout(() => {
       const urlLang = detectLanguageFromUrl(url);
@@ -303,14 +277,16 @@ async function fetchAndParsePlaylist(url) {
         channels = [DEFAULT_FALLBACK_CHANNEL];
       }
 
+      // 1. Instantly display ALL channels
       filterChannels();
       statusBar.textContent = `${channels.length.toLocaleString()} channels loaded`;
 
-      // Auto play the first available channel immediately
+      // 2. Play the first available channel immediately
       const firstChannel = activeCategoryList[0] || channels[0];
       const firstElement = channelListEl.children[0];
       playChannel(firstChannel, firstElement, 0, false);
 
+      // 3. Start background monitoring to dynamically hide dead channels
       startBackgroundScanner();
 
     }, 20);
@@ -376,10 +352,8 @@ function capitalize(str) {
 function filterChannels() {
   const query = searchInput.value.trim().toLowerCase();
   
-  let pool = channels;
-  if (verifiedOnlineUrls.size > 0) {
-    pool = channels.filter(c => verifiedOnlineUrls.has(c.url));
-  }
+  // Filter out any broken URLs detected by background scanner
+  let pool = channels.filter(c => !brokenUrls.has(c.url));
 
   if (!query) {
     activeCategoryList = pool;
@@ -395,11 +369,12 @@ function filterChannels() {
   channelListEl.innerHTML = '';
   
   if (channelCountEl) {
-    channelCountEl.textContent = `Active Live Channels: ${activeCategoryList.length.toLocaleString()}`;
+    const hiddenCount = brokenUrls.size;
+    channelCountEl.textContent = `Channels: ${activeCategoryList.length.toLocaleString()}` + (hiddenCount > 0 ? ` (${hiddenCount} offline hidden)` : '');
   }
 
   if (activeCategoryList.length === 0) {
-    channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Scanning active streams...</li>';
+    channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">No channels available...</li>';
     return;
   }
 
@@ -435,6 +410,10 @@ function appendMoreChannels() {
   channelListEl.appendChild(fragment);
   renderedCount = nextChunkLimit;
 }
+
+/* ========================================================= */
+/* STREAM PLAYER EXECUTION                                   */
+/* ========================================================= */
 
 function playChannel(channel, element, categoryIndex, isUserClicked = true) {
   if (skipTimer) {
@@ -503,7 +482,6 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
         playPromise.then(() => {
           statusBar.textContent = 'Broadcasting';
         }).catch(() => {
-          // Autoplay protection fallback (muted playback if blocked by browser policy)
           if (plyrInstance) plyrInstance.muted = true;
           videoPlayer.muted = true;
           videoPlayer.play();
@@ -514,12 +492,13 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
 
     hlsPlayer.on(Hls.Events.ERROR, function(event, data) {
       if (data.fatal) {
-        verifiedOnlineUrls.delete(channel.url);
+        // Mark as broken and hide it right away if playback fails
+        brokenUrls.add(channel.url);
         filterChannels();
 
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
-            statusBar.textContent = 'Offline. Skipping to next working stream...';
+            statusBar.textContent = 'Offline. Skipping to next channel...';
             skipTimer = setTimeout(() => navigateCategoryChannel(1), 1200);
             break;
           case Hls.ErrorTypes.MEDIA_ERROR:

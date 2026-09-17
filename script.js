@@ -88,17 +88,36 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
-  fetchAndParsePlaylist(playlistSelect.value);
+  
+  // Pre-load known online streams first for instant load time
+  preloadOnlineStreams().then(() => {
+    fetchAndParsePlaylist(playlistSelect.value);
+  });
 });
 
 /* ========================================================= */
-/* FAST BACKGROUND ONLINE/OFFLINE STREAM SCANNER             */
+/* FAST PRE-LOADER & BACKGROUND SCANNER                      */
 /* ========================================================= */
+
+async function preloadOnlineStreams() {
+  try {
+    const res = await fetch('https://iptv-org.github.io/api/streams.json');
+    if (!res.ok) return;
+    const streamsData = await res.json();
+    
+    // Add all active stream URLs from iptv-org API directly into verified set
+    streamsData.forEach(s => {
+      if (s.url && s.status === 'online') {
+        verifiedOnlineUrls.add(s.url);
+      }
+    });
+  } catch (err) {
+    // Graceful fallback if API fails
+  }
+}
 
 function startBackgroundScanner() {
   scanQueue = [...activeCategoryList, ...channels];
-  verifiedOnlineUrls.clear();
-  scannedUrls.clear();
   
   if (!isScanning) {
     isScanning = true;
@@ -116,7 +135,7 @@ function throttledFilterChannels() {
 }
 
 async function processScanQueue() {
-  const BATCH_SIZE = 25; // High concurrency for fast scanning
+  const BATCH_SIZE = 25; 
 
   while (scanQueue.length > 0) {
     const batch = [];
@@ -125,6 +144,12 @@ async function processScanQueue() {
       const channel = scanQueue.shift();
       if (!scannedUrls.has(channel.url)) {
         scannedUrls.add(channel.url);
+        
+        // If already preloaded as online, skip HTTP re-test
+        if (verifiedOnlineUrls.has(channel.url)) {
+          continue;
+        }
+        
         batch.push(channel);
       }
     }
@@ -246,7 +271,7 @@ function navigateCategoryChannel(direction) {
 
 async function fetchAndParsePlaylist(url) {
   statusBar.textContent = 'Downloading iptv-org playlist...';
-  channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Parsing channels...</li>';
+  channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Loading pre-verified channels...</li>';
 
   try {
     const response = await fetch(url);
@@ -338,7 +363,7 @@ function filterChannels() {
   const query = searchInput.value.trim().toLowerCase();
   
   let pool = channels;
-  if (scannedUrls.size > 0 && verifiedOnlineUrls.size > 0) {
+  if (verifiedOnlineUrls.size > 0) {
     pool = channels.filter(c => verifiedOnlineUrls.has(c.url));
   }
 
@@ -356,14 +381,11 @@ function filterChannels() {
   channelListEl.innerHTML = '';
   
   if (channelCountEl) {
-    const scannedTotal = scannedUrls.size;
-    channelCountEl.textContent = scannedTotal > 0 
-      ? `Online Channels: ${activeCategoryList.length.toLocaleString()} (Scanned: ${scannedTotal})` 
-      : `Channels: ${activeCategoryList.length.toLocaleString()}`;
+    channelCountEl.textContent = `Verified Online Channels: ${activeCategoryList.length.toLocaleString()}`;
   }
 
   if (activeCategoryList.length === 0) {
-    channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Scanning for online streams...</li>';
+    channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Fetching online streams...</li>';
     return;
   }
 

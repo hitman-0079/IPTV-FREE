@@ -40,7 +40,8 @@ const categoryFilter = document.getElementById('categoryFilter');
 const m3uUrlInput = document.getElementById('m3uUrlInput');
 const loadBtn = document.getElementById('loadBtn');
 const channelListEl = document.getElementById('channelList');
-const headerSearchInput = document.getElementById('headerChannelSearch');
+const searchInput = document.getElementById('channelSearch');
+const clearSearchBtn = document.getElementById('clearSearchBtn');
 const videoPlayer = document.getElementById('videoPlayer');
 const statusBar = document.getElementById('statusBar');
 const currentChannelName = document.getElementById('currentChannelName');
@@ -79,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
   categoryFilter.addEventListener('change', filterChannels);
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
   
+  setupSearchControls();
   setupMobileTouchGestures();
   autoInitializeApp();
 });
@@ -88,7 +90,28 @@ async function autoInitializeApp() {
   fetchAndParsePlaylist(playlistSelect.value);
 }
 
-/* SMARTPHONE TOUCH GESTURES */
+/* SEARCH CONTROLS */
+function setupSearchControls() {
+  searchInput.addEventListener('input', () => {
+    if (searchInput.value.trim().length > 0) {
+      clearSearchBtn.classList.add('show');
+    } else {
+      clearSearchBtn.classList.remove('show');
+    }
+
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(filterChannels, 150);
+  });
+
+  clearSearchBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    clearSearchBtn.classList.remove('show');
+    filterChannels();
+    searchInput.focus();
+  });
+}
+
+/* SMARTPHONE TOUCH GESTURES (SWIPE UP / DOWN TO SWITCH CHANNELS) */
 function setupMobileTouchGestures() {
   let touchStartY = 0;
   let touchEndY = 0;
@@ -120,7 +143,7 @@ function showGestureHint() {
   setTimeout(() => gestureHint.classList.remove('show'), 1500);
 }
 
-/* AUTOMATIC ORIENTATION LOCK ON FULLSCREEN */
+/* ORIENTATION LOCK ON FULLSCREEN */
 async function handleFullscreenOrientation() {
   if (isMobileDevice && screen.orientation && typeof screen.orientation.lock === 'function') {
     try {
@@ -196,7 +219,8 @@ brandLogo.addEventListener('click', goHome);
 
 function goHome() {
   if (skipTimer) clearTimeout(skipTimer);
-  headerSearchInput.value = '';
+  searchInput.value = '';
+  clearSearchBtn.classList.remove('show');
   m3uUrlInput.value = '';
   categoryFilter.value = 'ALL';
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
@@ -215,11 +239,6 @@ loadBtn.addEventListener('click', () => {
   currentScanIndex = 0;
   saveScanProgress(0);
   fetchAndParsePlaylist(customUrl || playlistSelect.value);
-});
-
-headerSearchInput.addEventListener('input', () => {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(filterChannels, 150);
 });
 
 prevBtn.addEventListener('click', () => navigateCategoryChannel(-1));
@@ -320,7 +339,7 @@ function fastM3UParse(m3uData) {
 }
 
 function filterChannels() {
-  const query = headerSearchInput.value.trim().toLowerCase();
+  const query = searchInput.value.trim().toLowerCase();
   const selectedCategory = categoryFilter.value;
   
   let pool = channels.filter(c => !brokenUrls.has(c.url));
@@ -346,7 +365,7 @@ function filterChannels() {
   }
 
   if (activeCategoryList.length === 0) {
-    channelListEl.innerHTML = '<li style="padding: 20px; color: #9ca3af; text-align: center;">No streams found</li>';
+    channelListEl.innerHTML = '<li style="padding: 20px; color: #9ca3af; text-align: center;">No matching streams found</li>';
     return;
   }
 

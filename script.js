@@ -171,7 +171,7 @@ function checkStreamHealth(url) {
   });
 }
 
-/* PLAYLIST & CATEGORY MANAGEMENT */
+/* PLAYLIST & SEARCH MANAGEMENT */
 brandLogo.addEventListener('click', goHome);
 
 function goHome() {

@@ -7,12 +7,6 @@ let searchTimeout = null;
 let hlsPlayer = null;
 let plyrInstance = null;
 
-// Gemini Captions State
-let captionsEnabled = false;
-let geminiApiKey = localStorage.getItem('gemini_api_key') || '';
-let captureInterval = null;
-let isCapturing = false;
-
 // Audio Volume States
 let userVolume = 1;
 let isUserMuted = false;
@@ -68,11 +62,6 @@ const stopBtn = document.getElementById('stopBtn');
 const nextBtn = document.getElementById('nextBtn');
 const channelCountEl = document.getElementById('channelCount');
 
-// Live Caption DOM Elements
-const captionToggleBtn = document.getElementById('captionToggleBtn');
-const liveCaptionOverlay = document.getElementById('liveCaptionOverlay');
-const captionText = document.getElementById('captionText');
-
 document.addEventListener('DOMContentLoaded', () => {
   plyrInstance = new Plyr(videoPlayer, {
     controls: ['play-large', 'play', 'mute', 'volume', 'current-time', 'settings', 'pip', 'fullscreen'],
@@ -97,8 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
       appendMoreChannels();
     }
   });
-
-  captionToggleBtn.addEventListener('click', toggleCaptions);
 
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
   fetchAndParsePlaylist(playlistSelect.value);
@@ -133,12 +120,10 @@ async function processScanQueue() {
       const isOnline = await checkStreamHealth(channel.url);
       if (isOnline) {
         verifiedOnlineUrls.add(channel.url);
-        // Refresh visible directory menu to continuously expose new live streams
         filterChannels(); 
       }
     }));
 
-    // Pause briefly between batches to prevent UI lag
     await new Promise(resolve => setTimeout(resolve, 300));
   }
 
@@ -151,9 +136,8 @@ function checkStreamHealth(url) {
     const timeoutId = setTimeout(() => {
       controller.abort();
       resolve(false);
-    }, 3500); // 3.5 sec timeout
+    }, 3500);
 
-    // Rapid request check to see if playlist file exists and yields an HTTP 200
     fetch(url, { method: 'GET', signal: controller.signal })
       .then(response => {
         clearTimeout(timeoutId);
@@ -164,135 +148,6 @@ function checkStreamHealth(url) {
         resolve(false);
       });
   });
-}
-
-/* ========================================================= */
-/* GEMINI AI LIVE AUDIO CAPTIONING                           */
-/* ========================================================= */
-
-async function toggleCaptions() {
-  captionsEnabled = !captionsEnabled;
-  captionToggleBtn.classList.toggle('active', captionsEnabled);
-
-  if (captionsEnabled) {
-    if (!geminiApiKey) {
-      geminiApiKey = prompt("Enter your Google Gemini API Key to enable AI Live Captions:");
-      if (!geminiApiKey) {
-        captionsEnabled = false;
-        captionToggleBtn.classList.remove('active');
-        return;
-      }
-      localStorage.setItem('gemini_api_key', geminiApiKey);
-    }
-    startGeminiCaptions();
-  } else {
-    stopGeminiCaptions();
-  }
-}
-
-function startGeminiCaptions() {
-  liveCaptionOverlay.classList.remove('hidden');
-  captionText.textContent = "Connecting to Gemini AI...";
-  isCapturing = true;
-
-  try {
-    const stream = videoPlayer.captureStream ? videoPlayer.captureStream() : (videoPlayer.mozCaptureStream ? videoPlayer.mozCaptureStream() : null);
-    
-    if (!stream || stream.getAudioTracks().length === 0) {
-      captionText.textContent = "Error: Audio blocked by stream security/CORS policies.";
-      return;
-    }
-
-    captionText.textContent = "Listening to live broadcast...";
-    
-    captureInterval = setInterval(() => {
-      if (isCapturing) recordAndSendAudioChunk(stream);
-    }, 4000);
-    
-    recordAndSendAudioChunk(stream);
-
-  } catch (err) {
-    captionText.textContent = "CORS Error: Audio capture blocked by stream security.";
-    console.error("Capture stream error:", err);
-  }
-}
-
-function stopGeminiCaptions() {
-  isCapturing = false;
-  liveCaptionOverlay.classList.add('hidden');
-  if (captureInterval) {
-    clearInterval(captureInterval);
-    captureInterval = null;
-  }
-}
-
-function recordAndSendAudioChunk(stream) {
-  const audioTrack = stream.getAudioTracks()[0];
-  if (!audioTrack) return;
-
-  const chunkStream = new MediaStream([audioTrack]);
-  const recorder = new MediaRecorder(chunkStream, { mimeType: 'audio/webm' });
-  const chunks = [];
-
-  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-  
-  recorder.onstop = async () => {
-    const blob = new Blob(chunks, { type: 'audio/webm' });
-    if (blob.size > 0) {
-      const base64Audio = await blobToBase64(blob);
-      transcribeWithGemini(base64Audio);
-    }
-  };
-
-  recorder.start();
-  setTimeout(() => {
-    if (recorder.state !== 'inactive') recorder.stop();
-  }, 3900); 
-}
-
-function blobToBase64(blob) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result.split(',')[1]);
-    reader.readAsDataURL(blob);
-  });
-}
-
-async function transcribeWithGemini(base64Data) {
-  if (!isCapturing) return;
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`;
-  const payload = {
-    contents: [{
-      parts: [
-        { text: "You are a closed-captioning system. Transcribe the following short audio snippet accurately in English. Do not add markdown or extra commentary. If there is no human speech, reply strictly with '[SILENCE]'." },
-        { inlineData: { mimeType: "audio/webm", data: base64Data } }
-      ]
-    }],
-    generationConfig: { temperature: 0.2 }
-  };
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await response.json();
-
-    if (data.candidates && data.candidates[0].content.parts[0].text) {
-      const text = data.candidates[0].content.parts[0].text.trim();
-      if (text && !text.includes("[SILENCE]")) {
-        captionText.textContent = text;
-      }
-    } else if (data.error && data.error.code === 403) {
-      captionText.textContent = "Error: Invalid Gemini API Key.";
-      stopGeminiCaptions();
-    }
-  } catch (err) {
-    console.error("Gemini Transcription Error:", err);
-  }
 }
 
 /* ========================================================= */
@@ -398,7 +253,6 @@ async function fetchAndParsePlaylist(url) {
       const firstElement = channelListEl.children[0];
       playChannel(firstChannel, firstElement, 0, false);
 
-      // Trigger automatic background health scanning
       startBackgroundScanner();
 
     }, 20);
@@ -461,11 +315,9 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-// FILTER: Only display channels verified as ONLINE (or display all during initial load)
 function filterChannels() {
   const query = searchInput.value.trim().toLowerCase();
   
-  // Filter channels based on background scan results
   let pool = channels;
   if (scannedUrls.size > 0 && verifiedOnlineUrls.size > 0) {
     pool = channels.filter(c => verifiedOnlineUrls.has(c.url));
@@ -534,10 +386,6 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
     clearTimeout(skipTimer);
     skipTimer = null;
   }
-  
-  if (captionsEnabled) {
-    stopGeminiCaptions();
-  }
 
   currentChannelIndex = categoryIndex;
 
@@ -599,20 +447,17 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
       if (playPromise !== undefined) {
         playPromise.then(() => {
           statusBar.textContent = 'Broadcasting';
-          if (captionsEnabled) setTimeout(startGeminiCaptions, 1000);
         }).catch(() => {
           if (plyrInstance) plyrInstance.muted = true;
           videoPlayer.muted = true;
           videoPlayer.play();
           statusBar.textContent = 'Broadcasting (Muted)';
-          if (captionsEnabled) setTimeout(startGeminiCaptions, 1000);
         });
       }
     });
 
     hlsPlayer.on(Hls.Events.ERROR, function(event, data) {
       if (data.fatal) {
-        // If playing the stream fails, mark it offline and remove it from menu
         verifiedOnlineUrls.delete(channel.url);
         filterChannels();
 
@@ -636,13 +481,11 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
     videoPlayer.src = channel.url;
     videoPlayer.play().then(() => {
       statusBar.textContent = 'Broadcasting';
-      if (captionsEnabled) setTimeout(startGeminiCaptions, 1000);
     }).catch(() => {
       if (plyrInstance) plyrInstance.muted = true;
       videoPlayer.muted = true;
       videoPlayer.play();
       statusBar.textContent = 'Broadcasting (Muted)';
-      if (captionsEnabled) setTimeout(startGeminiCaptions, 1000);
     });
   }
 }

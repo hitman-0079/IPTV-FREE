@@ -70,7 +70,7 @@
         <video id="videoPlayer" playsinline crossorigin controls></video>
       </div>
 
-      <!-- Broadcast Controls & Live Captions Below Player -->
+      <!-- Broadcast Controls Below Player -->
       <div class="broadcast-bar">
         <div class="broadcast-bar-top">
           <div class="broadcast-meta">
@@ -79,12 +79,6 @@
           </div>
 
           <div class="broadcast-actions">
-            <!-- English Caption Button Option -->
-            <button id="captionToggleBtn" class="btn btn-secondary btn-caption" title="Toggle English Live Captions" aria-label="Toggle Captions">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h4M15 15h2M7 11h2M13 11h4"/></svg>
-              <span>English CC</span>
-            </button>
-
             <div class="btn-group">
               <button id="prevBtn" class="btn btn-secondary" aria-label="Previous Channel">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
@@ -103,12 +97,6 @@
             </div>
             <div class="status-pill" id="statusBar">Ready</div>
           </div>
-        </div>
-
-        <!-- Live Subtitles/Captions Output Panel Below the Controls -->
-        <div id="liveCaptionOverlay" class="live-caption-bar hidden">
-          <span class="caption-label">LIVE CC</span>
-          <span id="captionText" class="caption-text">Listening for live audio...</span>
         </div>
       </div>
     </main>

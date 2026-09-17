@@ -72,23 +72,26 @@
         </div>
       </section>
 
+      <!-- ENHANCED CHANNEL LIST SIDEBAR -->
       <aside class="sidebar">
         <div class="sidebar-header">
-          <!-- VISIBLE HIGH-VISIBILITY SEARCH BAR -->
+          <div class="sidebar-title">
+            <span>📺 Channel Directory</span>
+            <span id="channelCount" class="count-badge">0 Channels</span>
+          </div>
+
           <div class="search-wrapper">
             <span class="search-icon">🔍</span>
             <input type="text" id="channelSearch" placeholder="Search channels by name..." />
           </div>
 
-          <!-- CATEGORY FILTER -->
           <div class="category-wrapper">
             <select id="categoryFilter" aria-label="Filter by Category">
               <option value="ALL">All Categories</option>
             </select>
           </div>
-
-          <div id="channelCount">Channels: 0</div>
         </div>
+
         <ul id="channelList" class="channel-list"></ul>
       </aside>
     </main>

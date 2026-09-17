@@ -85,6 +85,15 @@ document.addEventListener('DOMContentLoaded', () => {
     videoPlayer.muted = isUserMuted;
   });
 
+  // Automatically adjust orientation when entering or exiting fullscreen
+  plyrInstance.on('enterfullscreen', () => {
+    autoLockOrientation('landscape');
+  });
+
+  plyrInstance.on('exitfullscreen', () => {
+    autoUnlockOrientation();
+  });
+
   channelListEl.addEventListener('scroll', () => {
     if (channelListEl.scrollTop + channelListEl.clientHeight >= channelListEl.scrollHeight - 200) {
       appendMoreChannels();
@@ -94,6 +103,39 @@ document.addEventListener('DOMContentLoaded', () => {
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
   autoInitializeApp();
 });
+
+// Fallback listener for native fullscreen changes across browsers
+document.addEventListener('fullscreenchange', handleNativeFullscreenChange);
+document.addEventListener('webkitfullscreenchange', handleNativeFullscreenChange);
+
+function handleNativeFullscreenChange() {
+  const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  if (isFullscreen) {
+    autoLockOrientation('landscape');
+  } else {
+    autoUnlockOrientation();
+  }
+}
+
+async function autoLockOrientation(orientationType) {
+  if (isMobileDevice && screen.orientation && typeof screen.orientation.lock === 'function') {
+    try {
+      await screen.orientation.lock(orientationType);
+    } catch (err) {
+      console.warn("Screen orientation lock prevented:", err);
+    }
+  }
+}
+
+function autoUnlockOrientation() {
+  if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+    try {
+      screen.orientation.unlock();
+    } catch (err) {
+      // Ignore unlock exceptions
+    }
+  }
+}
 
 async function autoInitializeApp() {
   statusBar.textContent = 'Loading channel directory...';
@@ -141,7 +183,6 @@ async function processScanQueue() {
     await Promise.all(batch.map(async (channel) => {
       const isOnline = await checkStreamHealth(channel.url);
       if (!isOnline) {
-        // Flag broken URL and dynamically update UI/filter to hide it
         brokenUrls.add(channel.url);
         throttledFilterChannels(); 
       }
@@ -158,7 +199,7 @@ function checkStreamHealth(url) {
     
     const timeoutId = setTimeout(() => {
       controller.abort();
-      resolve(false); // Fail stream on timeout
+      resolve(false);
     }, 2500);
 
     fetch(url, { 
@@ -253,7 +294,6 @@ function navigateCategoryChannel(direction) {
 }
 
 async function fetchAndParsePlaylist(url) {
-  // Clear scanning cache for new playlist
   brokenUrls.clear();
   scannedUrls.clear();
 
@@ -277,16 +317,13 @@ async function fetchAndParsePlaylist(url) {
         channels = [DEFAULT_FALLBACK_CHANNEL];
       }
 
-      // 1. Instantly display ALL channels
       filterChannels();
       statusBar.textContent = `${channels.length.toLocaleString()} channels loaded`;
 
-      // 2. Play the first available channel immediately
       const firstChannel = activeCategoryList[0] || channels[0];
       const firstElement = channelListEl.children[0];
       playChannel(firstChannel, firstElement, 0, false);
 
-      // 3. Start background monitoring to dynamically hide dead channels
       startBackgroundScanner();
 
     }, 20);
@@ -352,7 +389,6 @@ function capitalize(str) {
 function filterChannels() {
   const query = searchInput.value.trim().toLowerCase();
   
-  // Filter out any broken URLs detected by background scanner
   let pool = channels.filter(c => !brokenUrls.has(c.url));
 
   if (!query) {
@@ -492,7 +528,6 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
 
     hlsPlayer.on(Hls.Events.ERROR, function(event, data) {
       if (data.fatal) {
-        // Mark as broken and hide it right away if playback fails
         brokenUrls.add(channel.url);
         filterChannels();
 

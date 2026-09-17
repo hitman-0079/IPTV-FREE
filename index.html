@@ -2,17 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>StreamFlix Live</title>
-
-  <!-- PWA & Mobile Web App Meta Tags -->
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#0f172a" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="StreamFlix" />
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/713/713028.png" />
-
   <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -24,18 +15,25 @@
       <div class="logo" id="brandLogo" tabindex="0">StreamFlix</div>
       <div class="playlist-controls">
         <select id="playlistSelect">
+          <!-- General / Global -->
           <option value="https://iptv-org.github.io/iptv/index.m3u">IPTV-Org (Global Default - Full)</option>
+          
+          <!-- Categories -->
           <option value="https://iptv-org.github.io/iptv/categories/news.m3u">Category: News</option>
           <option value="https://iptv-org.github.io/iptv/categories/sports.m3u">Category: Sports</option>
           <option value="https://iptv-org.github.io/iptv/categories/movies.m3u">Category: Movies</option>
           <option value="https://iptv-org.github.io/iptv/categories/music.m3u">Category: Music</option>
           <option value="https://iptv-org.github.io/iptv/categories/entertainment.m3u">Category: Entertainment</option>
           <option value="https://iptv-org.github.io/iptv/categories/documentary.m3u">Category: Documentary</option>
+
+          <!-- Languages -->
           <option value="https://iptv-org.github.io/iptv/languages/eng.m3u">Language: English</option>
           <option value="https://iptv-org.github.io/iptv/languages/spa.m3u">Language: Spanish</option>
           <option value="https://iptv-org.github.io/iptv/languages/fra.m3u">Language: French</option>
           <option value="https://iptv-org.github.io/iptv/languages/deu.m3u">Language: German</option>
           <option value="https://iptv-org.github.io/iptv/languages/hin.m3u">Language: Hindi</option>
+
+          <!-- Countries -->
           <option value="https://iptv-org.github.io/iptv/countries/us.m3u">Country: United States</option>
           <option value="https://iptv-org.github.io/iptv/countries/uk.m3u">Country: United Kingdom</option>
           <option value="https://iptv-org.github.io/iptv/countries/ca.m3u">Country: Canada</option>

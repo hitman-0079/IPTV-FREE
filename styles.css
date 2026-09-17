@@ -7,7 +7,7 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background-color: #0b0f17;
+  background-color: #080c14;
   color: #f1f5f9;
   min-height: 100vh;
   min-height: -webkit-fill-available;
@@ -34,15 +34,15 @@ html {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 16px;
-  background-color: #111827;
-  border-bottom: 1px solid #1f2937;
+  padding: 10px 20px;
+  background-color: #0f172a;
+  border-bottom: 1px solid #1e293b;
   gap: 12px;
   flex-wrap: wrap;
 }
 
 .logo {
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   font-weight: 800;
   letter-spacing: 0.5px;
   cursor: pointer;
@@ -65,51 +65,32 @@ html {
   font-weight: 700;
 }
 
-/* HEADER SEARCH BAR */
-.main-search-bar {
-  flex: 1;
-  min-width: 200px;
-  max-width: 380px;
-}
-
-.main-search-bar input {
-  width: 100%;
-  padding: 9px 14px;
-  border-radius: 8px;
-  border: 1px solid #0284c7;
-  background-color: #1f2937;
-  color: #f9fafb;
-  font-size: 0.88rem;
-  outline: none;
-  box-shadow: 0 0 8px rgba(2, 132, 199, 0.2);
-  transition: all 0.2s ease;
-}
-
-.main-search-bar input:focus {
-  border-color: #38bdf8;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
-}
-
 .playlist-controls {
   display: flex;
   gap: 8px;
   flex-grow: 1;
-  max-width: 500px;
+  max-width: 800px;
 }
 
 .playlist-controls select,
 .custom-input-group input {
-  padding: 9px 12px;
+  padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid #374151;
-  background-color: #1f2937;
-  color: #f9fafb;
+  border: 1px solid #334155;
+  background-color: #1e293b;
+  color: #f8fafc;
   font-size: 0.85rem;
   outline: none;
+  transition: border-color 0.2s;
+}
+
+.playlist-controls select:focus,
+.custom-input-group input:focus {
+  border-color: #0284c7;
 }
 
 .playlist-controls select {
-  flex-basis: 160px;
+  flex-basis: 200px;
 }
 
 .custom-input-group {
@@ -124,7 +105,7 @@ html {
 }
 
 .playlist-controls button {
-  padding: 9px 14px;
+  padding: 10px 16px;
   border-radius: 8px;
   border: none;
   background-color: #0284c7;
@@ -132,9 +113,14 @@ html {
   font-weight: 600;
   font-size: 0.85rem;
   cursor: pointer;
+  transition: background-color 0.2s;
 }
 
-/* MAIN LAYOUT */
+.playlist-controls button:hover {
+  background-color: #0369a1;
+}
+
+/* MAIN CONTENT */
 .main-content {
   display: flex;
   flex: 1;
@@ -146,9 +132,9 @@ html {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #030712;
-  padding: 12px;
-  gap: 12px;
+  background-color: #020617;
+  padding: 16px;
+  gap: 14px;
   overflow-y: auto;
 }
 
@@ -162,10 +148,10 @@ html {
   position: relative;
   aspect-ratio: 16 / 9;
   background-color: #000000;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6);
-  border: 1px solid #1f2937;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.7);
+  border: 1px solid #1e293b;
   touch-action: pan-x;
 }
 
@@ -176,14 +162,16 @@ html {
 
 .gesture-hint {
   position: absolute;
-  top: 12px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.75);
-  color: #e0f2fe;
-  padding: 6px 12px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #38bdf8;
+  border: 1px solid #0284c7;
+  padding: 6px 14px;
   border-radius: 20px;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
+  font-weight: 600;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.4s ease;
@@ -202,86 +190,156 @@ html {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #111827;
-  padding: 12px 16px;
+  background-color: #0f172a;
+  padding: 14px 18px;
   border-radius: 10px;
-  border: 1px solid #1f2937;
+  border: 1px solid #1e293b;
   gap: 12px;
 }
 
 .channel-details h2 {
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   line-height: 1.2;
 }
 
 .header-lang-tag {
   font-size: 0.7rem;
-  background-color: #1f2937;
+  background-color: #1e293b;
   color: #38bdf8;
-  padding: 2px 6px;
+  padding: 2px 8px;
   border-radius: 4px;
-  border: 1px solid #374151;
+  border: 1px solid #334155;
+  margin-left: 6px;
 }
 
 #statusBar {
-  font-size: 0.75rem;
-  color: #9ca3af;
-  margin-top: 2px;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin-top: 3px;
 }
 
 .playback-actions {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 
 .playback-actions button {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 8px 12px;
+  min-width: 50px;
+  min-height: 40px;
+  padding: 8px 14px;
   border-radius: 8px;
-  border: 1px solid #374151;
-  background-color: #1f2937;
-  color: #f9fafb;
-  font-size: 0.9rem;
+  border: 1px solid #334155;
+  background-color: #1e293b;
+  color: #f8fafc;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
-/* SIDEBAR */
+.playback-actions button:hover {
+  background-color: #334155;
+}
+
+.playback-actions .btn-stop:hover {
+  background-color: #991b1b;
+  border-color: #dc2626;
+}
+
+/* SIDEBAR & SEARCH BAR */
 .sidebar {
-  width: 340px;
-  background-color: #111827;
-  border-left: 1px solid #1f2937;
+  width: 360px;
+  background-color: #0f172a;
+  border-left: 1px solid #1e293b;
   display: flex;
   flex-direction: column;
 }
 
 .sidebar-header {
-  padding: 12px;
-  border-bottom: 1px solid #1f2937;
+  padding: 14px;
+  border-bottom: 1px solid #1e293b;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  background-color: #0f172a;
+}
+
+/* STANDALONE SEARCH BOX STYLES */
+.search-box-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  stroke: #94a3b8;
+  pointer-events: none;
+}
+
+.search-box-wrapper input {
+  width: 100%;
+  padding: 10px 36px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background-color: #1e293b;
+  color: #f8fafc;
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-box-wrapper input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.25);
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: none;
+  line-height: 1;
+}
+
+.clear-search-btn.show {
+  display: block;
+}
+
+.filter-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }
 
 .filter-controls select {
-  width: 100%;
-  padding: 9px 12px;
-  border-radius: 8px;
-  border: 1px solid #374151;
-  background-color: #1f2937;
-  color: #f9fafb;
-  font-size: 0.85rem;
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background-color: #1e293b;
+  color: #f8fafc;
+  font-size: 0.82rem;
   outline: none;
 }
 
 #channelCount {
   font-size: 0.72rem;
-  color: #9ca3af;
-  text-align: right;
+  color: #94a3b8;
+  white-space: nowrap;
 }
 
+/* CHANNEL LIST */
 .channel-list {
   list-style: none;
   overflow-y: auto;
@@ -290,12 +348,17 @@ html {
 }
 
 .channel-item {
-  padding: 14px 16px;
-  border-bottom: 1px solid #1f2937;
+  padding: 12px 16px;
+  border-bottom: 1px solid #1e293b;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  transition: background-color 0.15s;
+}
+
+.channel-item:hover {
+  background-color: #1e293b;
 }
 
 .channel-item.active {
@@ -305,16 +368,25 @@ html {
 .channel-name {
   font-size: 0.88rem;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .channel-meta {
   display: flex;
   justify-content: space-between;
   font-size: 0.72rem;
-  color: #9ca3af;
+  color: #94a3b8;
 }
 
-/* SMARTPHONE & MOBILE BREAKPOINTS */
+.channel-category {
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+/* MOBILE & RESPONSIVE BREAKPOINTS */
 @media (max-width: 850px) {
   .app-container {
     height: auto;
@@ -325,16 +397,9 @@ html {
     padding: 8px 12px;
   }
 
-  .main-search-bar {
-    max-width: 100%;
-    width: 100%;
-    order: 2;
-  }
-
   .playlist-controls {
     flex-direction: column;
     width: 100%;
-    order: 3;
   }
 
   .playlist-controls select {
@@ -358,6 +423,6 @@ html {
     width: 100%;
     height: 60vh;
     border-left: none;
-    border-top: 1px solid #1f2937;
+    border-top: 1px solid #1e293b;
   }
 }

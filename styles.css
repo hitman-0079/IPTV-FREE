@@ -5,9 +5,9 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: #0f172a;
-  color: #f8fafc;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", sans-serif;
+  background-color: #0b0f17;
+  color: #f1f5f9;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -19,53 +19,77 @@ body {
   height: 100vh;
 }
 
+/* NAVBAR */
 .navbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 24px;
-  background-color: #1e293b;
-  border-bottom: 1px solid #334155;
+  padding: 10px 24px;
+  background-color: #111827;
+  border-bottom: 1px solid #1f2937;
   gap: 16px;
   flex-wrap: wrap;
 }
 
 .logo {
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   font-weight: 800;
-  color: #38bdf8;
+  letter-spacing: 0.5px;
   cursor: pointer;
   user-select: none;
-  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.logo:hover {
-  color: #7dd3fc;
+.logo-accent {
+  color: #0284c7;
+}
+
+.badge-pro {
+  font-size: 0.65rem;
+  background: #0284c7;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
 }
 
 .playlist-controls {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-grow: 1;
-  max-width: 750px;
+  max-width: 800px;
 }
 
 .playlist-controls select,
-.playlist-controls input {
+.custom-input-group input {
   padding: 8px 12px;
   border-radius: 6px;
-  border: 1px solid #334155;
-  background-color: #0f172a;
-  color: #f8fafc;
+  border: 1px solid #374151;
+  background-color: #1f2937;
+  color: #f9fafb;
   font-size: 0.85rem;
   outline: none;
+  transition: border-color 0.2s;
+}
+
+.playlist-controls select:focus,
+.custom-input-group input:focus {
+  border-color: #0284c7;
 }
 
 .playlist-controls select {
-  flex-basis: 220px;
+  flex-basis: 240px;
 }
 
-.playlist-controls input {
+.custom-input-group {
+  display: flex;
+  flex-grow: 1;
+  gap: 6px;
+}
+
+.custom-input-group input {
   flex-grow: 1;
 }
 
@@ -85,31 +109,37 @@ body {
   background-color: #0369a1;
 }
 
+/* MAIN CONTENT */
 .main-content {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
+/* PLAYER SECTION */
 .player-section {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #020617;
-  padding: 16px;
+  background-color: #030712;
+  padding: 20px;
   gap: 16px;
   overflow-y: auto;
 }
 
-.video-wrapper {
+.video-container {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
+}
+
+.video-wrapper {
   aspect-ratio: 16 / 9;
   background-color: #000000;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
+  border: 1px solid #1f2937;
 }
 
 .video-wrapper video {
@@ -117,38 +147,38 @@ body {
   height: 100%;
 }
 
-.player-info {
+.player-bar {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #1e293b;
+  background-color: #111827;
   padding: 16px 20px;
-  border-radius: 8px;
-  border: 1px solid #334155;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
 }
 
 .channel-details h2 {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   margin-bottom: 4px;
 }
 
 .header-lang-tag {
-  font-size: 0.75rem;
-  background-color: #334155;
-  color: #94a3b8;
-  padding: 2px 6px;
+  font-size: 0.72rem;
+  background-color: #1f2937;
+  color: #38bdf8;
+  padding: 2px 8px;
   border-radius: 4px;
-  vertical-align: middle;
-  font-weight: 500;
+  margin-left: 6px;
+  border: 1px solid #374151;
 }
 
 #statusBar {
   font-size: 0.8rem;
-  color: #38bdf8;
+  color: #9ca3af;
 }
 
 .playback-actions {
@@ -159,48 +189,62 @@ body {
 .playback-actions button {
   padding: 8px 14px;
   border-radius: 6px;
-  border: 1px solid #334155;
-  background-color: #0f172a;
-  color: #f8fafc;
+  border: 1px solid #374151;
+  background-color: #1f2937;
+  color: #f9fafb;
   font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .playback-actions button:hover {
-  background-color: #334155;
+  background-color: #374151;
 }
 
+.playback-actions .btn-stop:hover {
+  background-color: #991b1b;
+  border-color: #b91c1c;
+}
+
+/* SIDEBAR */
 .sidebar {
-  width: 340px;
-  background-color: #0f172a;
-  border-left: 1px solid #334155;
+  width: 360px;
+  background-color: #111827;
+  border-left: 1px solid #1f2937;
   display: flex;
   flex-direction: column;
 }
 
 .sidebar-header {
-  padding: 12px;
-  border-bottom: 1px solid #334155;
+  padding: 16px;
+  border-bottom: 1px solid #1f2937;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filter-controls {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.sidebar-header input {
+.filter-controls select,
+.filter-controls input {
   width: 100%;
   padding: 8px 12px;
   border-radius: 6px;
-  border: 1px solid #334155;
-  background-color: #1e293b;
-  color: #f8fafc;
+  border: 1px solid #374151;
+  background-color: #1f2937;
+  color: #f9fafb;
   font-size: 0.85rem;
   outline: none;
 }
 
 #channelCount {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #9ca3af;
   text-align: right;
 }
 
@@ -211,17 +255,17 @@ body {
 }
 
 .channel-item {
-  padding: 10px 14px;
-  border-bottom: 1px solid #1e293b;
+  padding: 12px 16px;
+  border-bottom: 1px solid #1f2937;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   transition: background-color 0.15s;
 }
 
 .channel-item:hover {
-  background-color: #1e293b;
+  background-color: #1f2937;
 }
 
 .channel-item.active {
@@ -233,7 +277,7 @@ body {
 }
 
 .channel-name {
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -244,7 +288,13 @@ body {
   display: flex;
   justify-content: space-between;
   font-size: 0.72rem;
-  color: #64748b;
+  color: #9ca3af;
+}
+
+.channel-category {
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 1px 6px;
+  border-radius: 3px;
 }
 
 @media (max-width: 1024px) {
@@ -256,7 +306,7 @@ body {
   }
   .sidebar {
     width: 100%;
-    height: 450px;
+    height: 480px;
   }
   .playlist-controls {
     flex-direction: column;

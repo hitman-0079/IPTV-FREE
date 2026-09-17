@@ -6,6 +6,7 @@ let searchTimeout = null;
 
 let hlsPlayer = null;
 let plyrInstance = null;
+let wakeLock = null;
 
 // Audio Volume States
 let userVolume = 1;
@@ -62,6 +63,42 @@ const nextBtn = document.getElementById('nextBtn');
 const channelCountEl = document.getElementById('channelCount');
 
 /* ========================================================= */
+/* SERVICE WORKER & WAKE LOCK SETUP                          */
+/* ========================================================= */
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch((err) => {
+      console.warn('Service worker registration failed:', err);
+    });
+  });
+}
+
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator && wakeLock === null) {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch (err) {
+    console.warn('Wake Lock prevented:', err);
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock !== null) {
+    wakeLock.release().then(() => {
+      wakeLock = null;
+    });
+  }
+}
+
+document.addEventListener('visibilitychange', async () => {
+  if (wakeLock !== null && document.visibilityState === 'visible') {
+    await requestWakeLock();
+  }
+});
+
+/* ========================================================= */
 /* PERSISTENCE HELPERS                                       */
 /* ========================================================= */
 
@@ -88,6 +125,9 @@ document.addEventListener('DOMContentLoaded', () => {
       onChange: (q) => { if (hlsPlayer) hlsPlayer.currentLevel = q; }
     }
   });
+
+  plyrInstance.on('play', () => requestWakeLock());
+  plyrInstance.on('pause', () => releaseWakeLock());
 
   plyrInstance.on('volumechange', () => {
     userVolume = plyrInstance.volume;
@@ -163,9 +203,9 @@ function startBackgroundScanner() {
 }
 
 async function continuousScannerLoop() {
-  const BATCH_SIZE = 10;        // Concurrent stream health checks
-  const BATCH_DELAY_MS = 300;   // Delay between batches to ensure lightweight execution
-  const CYCLE_REST_MS = 5000;   // Rest delay before repeating from start when entire list completes
+  const BATCH_SIZE = 10;
+  const BATCH_DELAY_MS = 300;
+  const CYCLE_REST_MS = 5000;
 
   while (scannerLoopActive) {
     if (channels.length === 0) {
@@ -173,7 +213,6 @@ async function continuousScannerLoop() {
       continue;
     }
 
-    // Wrap around to start if scan index exceeds available channel count
     if (currentScanIndex >= channels.length) {
       currentScanIndex = 0;
       saveScanProgress(0);
@@ -181,20 +220,17 @@ async function continuousScannerLoop() {
       continue;
     }
 
-    // Fetch next batch based on saved progress index
     const batch = channels.slice(currentScanIndex, currentScanIndex + BATCH_SIZE);
 
     if (batch.length > 0) {
       await Promise.all(batch.map(async (channel) => {
         const isOnline = await checkStreamHealth(channel.url);
         
-        // Channel offline: add to storage & update UI
         if (!isOnline && !brokenUrls.has(channel.url)) {
           brokenUrls.add(channel.url);
           saveOfflineChannels();
           throttledFilterChannels(); 
         } 
-        // Channel back online: remove from storage & update UI
         else if (isOnline && brokenUrls.has(channel.url)) {
           brokenUrls.delete(channel.url);
           saveOfflineChannels();
@@ -202,7 +238,6 @@ async function continuousScannerLoop() {
         }
       }));
 
-      // Update and save current scanner cursor position
       currentScanIndex += batch.length;
       saveScanProgress(currentScanIndex);
     }
@@ -299,6 +334,7 @@ stopBtn.addEventListener('click', () => {
     skipTimer = null;
   }
   videoPlayer.pause();
+  releaseWakeLock();
   statusBar.textContent = 'Auto-skip stopped';
 });
 
@@ -545,11 +581,13 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
       if (playPromise !== undefined) {
         playPromise.then(() => {
           statusBar.textContent = 'Broadcasting';
+          requestWakeLock();
         }).catch(() => {
           if (plyrInstance) plyrInstance.muted = true;
           videoPlayer.muted = true;
           videoPlayer.play();
           statusBar.textContent = 'Broadcasting (Muted)';
+          requestWakeLock();
         });
       }
     });
@@ -576,11 +614,13 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
     videoPlayer.src = channel.url;
     videoPlayer.play().then(() => {
       statusBar.textContent = 'Broadcasting';
+      requestWakeLock();
     }).catch(() => {
       if (plyrInstance) plyrInstance.muted = true;
       videoPlayer.muted = true;
       videoPlayer.play();
       statusBar.textContent = 'Broadcasting (Muted)';
+      requestWakeLock();
     });
   }
 }

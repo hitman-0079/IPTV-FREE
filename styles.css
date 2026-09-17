@@ -207,7 +207,7 @@ body {
   border-color: #b91c1c;
 }
 
-/* SIDEBAR */
+/* SIDEBAR & SEARCH HIGHLIGHTS */
 .sidebar {
   width: 360px;
   background-color: #111827;
@@ -221,17 +221,43 @@ body {
   border-bottom: 1px solid #1f2937;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  background-color: #182234;
 }
 
-.filter-controls {
+.search-wrapper {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
 }
 
-.filter-controls select,
-.filter-controls input {
+.search-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 0.85rem;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.search-wrapper input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border-radius: 6px;
+  border: 1.5px solid #0284c7;
+  background-color: #0f172a;
+  color: #ffffff;
+  font-size: 0.9rem;
+  outline: none;
+  box-shadow: 0 0 8px rgba(2, 132, 199, 0.25);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-wrapper input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+}
+
+.category-wrapper select {
   width: 100%;
   padding: 8px 12px;
   border-radius: 6px;

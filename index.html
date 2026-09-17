@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StreamFlix Live</title>
+  <title>StreamFlix Pro</title>
   <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -12,51 +12,61 @@
 <body>
   <div class="app-container">
     <header class="navbar">
-      <div class="logo" id="brandLogo" tabindex="0">StreamFlix</div>
+      <div class="brand">
+        <div class="logo" id="brandLogo" tabindex="0">
+          <span class="logo-accent">STREAM</span>FLIX <span class="badge-pro">PRO</span>
+        </div>
+      </div>
       <div class="playlist-controls">
-        <select id="playlistSelect">
-          <!-- General / Global -->
-          <option value="https://iptv-org.github.io/iptv/index.m3u">IPTV-Org (Global Default - Full)</option>
-          
-          <!-- Categories -->
-          <option value="https://iptv-org.github.io/iptv/categories/news.m3u">Category: News</option>
-          <option value="https://iptv-org.github.io/iptv/categories/sports.m3u">Category: Sports</option>
-          <option value="https://iptv-org.github.io/iptv/categories/movies.m3u">Category: Movies</option>
-          <option value="https://iptv-org.github.io/iptv/categories/music.m3u">Category: Music</option>
-          <option value="https://iptv-org.github.io/iptv/categories/entertainment.m3u">Category: Entertainment</option>
-          <option value="https://iptv-org.github.io/iptv/categories/documentary.m3u">Category: Documentary</option>
-
-          <!-- Languages -->
-          <option value="https://iptv-org.github.io/iptv/languages/eng.m3u">Language: English</option>
-          <option value="https://iptv-org.github.io/iptv/languages/spa.m3u">Language: Spanish</option>
-          <option value="https://iptv-org.github.io/iptv/languages/fra.m3u">Language: French</option>
-          <option value="https://iptv-org.github.io/iptv/languages/deu.m3u">Language: German</option>
-          <option value="https://iptv-org.github.io/iptv/languages/hin.m3u">Language: Hindi</option>
-
-          <!-- Countries -->
-          <option value="https://iptv-org.github.io/iptv/countries/us.m3u">Country: United States</option>
-          <option value="https://iptv-org.github.io/iptv/countries/uk.m3u">Country: United Kingdom</option>
-          <option value="https://iptv-org.github.io/iptv/countries/ca.m3u">Country: Canada</option>
-          <option value="https://iptv-org.github.io/iptv/countries/in.m3u">Country: India</option>
+        <select id="playlistSelect" aria-label="Select Playlist Preset">
+          <optgroup label="Global Directories">
+            <option value="https://iptv-org.github.io/iptv/index.m3u">IPTV-Org (Global Master)</option>
+          </optgroup>
+          <optgroup label="Categories">
+            <option value="https://iptv-org.github.io/iptv/categories/news.m3u">News & Live Info</option>
+            <option value="https://iptv-org.github.io/iptv/categories/sports.m3u">Sports & Gaming</option>
+            <option value="https://iptv-org.github.io/iptv/categories/movies.m3u">Cinema & Movies</option>
+            <option value="https://iptv-org.github.io/iptv/categories/music.m3u">Music & Radios</option>
+            <option value="https://iptv-org.github.io/iptv/categories/entertainment.m3u">General Entertainment</option>
+            <option value="https://iptv-org.github.io/iptv/categories/documentary.m3u">Documentary & Culture</option>
+          </optgroup>
+          <optgroup label="Languages">
+            <option value="https://iptv-org.github.io/iptv/languages/eng.m3u">English Networks</option>
+            <option value="https://iptv-org.github.io/iptv/languages/spa.m3u">Spanish Networks</option>
+            <option value="https://iptv-org.github.io/iptv/languages/fra.m3u">French Networks</option>
+            <option value="https://iptv-org.github.io/iptv/languages/deu.m3u">German Networks</option>
+            <option value="https://iptv-org.github.io/iptv/languages/hin.m3u">Hindi Networks</option>
+          </optgroup>
+          <optgroup label="Regions">
+            <option value="https://iptv-org.github.io/iptv/countries/us.m3u">United States</option>
+            <option value="https://iptv-org.github.io/iptv/countries/uk.m3u">United Kingdom</option>
+            <option value="https://iptv-org.github.io/iptv/countries/ca.m3u">Canada</option>
+            <option value="https://iptv-org.github.io/iptv/countries/in.m3u">India</option>
+          </optgroup>
         </select>
-        <input type="text" id="m3uUrlInput" placeholder="Or enter custom M3U/M3U8 URL..." />
-        <button id="loadBtn">Load M3U</button>
+        <div class="custom-input-group">
+          <input type="text" id="m3uUrlInput" placeholder="Paste custom M3U/M3U8 link..." />
+          <button id="loadBtn">Load Link</button>
+        </div>
       </div>
     </header>
 
     <main class="main-content">
       <section class="player-section">
-        <div class="video-wrapper">
-          <video id="videoPlayer" crossorigin playsinline></video>
+        <div class="video-container">
+          <div class="video-wrapper">
+            <video id="videoPlayer" crossorigin playsinline></video>
+          </div>
         </div>
-        <div class="player-info">
+        
+        <div class="player-bar">
           <div class="channel-details">
-            <h2 id="currentChannelName">Select a Broadcast</h2>
-            <div id="statusBar">Status: Ready</div>
+            <h2 id="currentChannelName">Select a Broadcast Stream</h2>
+            <div id="statusBar">Status: Standby</div>
           </div>
           <div class="playback-actions">
             <button id="prevBtn" title="Previous Channel">‹ Prev</button>
-            <button id="stopBtn" title="Stop Auto-Skip">Stop Skip</button>
+            <button id="stopBtn" class="btn-stop" title="Stop Auto-Skip">Stop Auto-Skip</button>
             <button id="nextBtn" title="Next Channel">Next ›</button>
           </div>
         </div>
@@ -64,7 +74,12 @@
 
       <aside class="sidebar">
         <div class="sidebar-header">
-          <input type="text" id="channelSearch" placeholder="Search channels..." />
+          <div class="filter-controls">
+            <select id="categoryFilter" aria-label="Filter by Category">
+              <option value="ALL">All Categories</option>
+            </select>
+            <input type="text" id="channelSearch" placeholder="Search channels..." />
+          </div>
           <div id="channelCount">Channels: 0</div>
         </div>
         <ul id="channelList" class="channel-list"></ul>

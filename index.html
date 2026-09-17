@@ -1,120 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>StreamFlix Pro - Live IPTV Cinema Player</title>
-  
-  <!-- Fonts & Icons -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
-  <!-- Plyr CSS & Custom Styles -->
-  <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
-  <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>StreamFlix Live</title>
 
-  <!-- Player Dependencies -->
+  <!-- PWA & Mobile Web App Meta Tags -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="StreamFlix" />
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/713/713028.png" />
+
+  <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+  <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
 </head>
 <body>
-
-  <!-- App Header -->
-  <header class="app-header">
-    <div class="brand" id="brandLogo" title="Go to Home / Reset" role="button" tabindex="0">
-      <div class="logo-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-      </div>
-      <h1 class="brand-title">STREAM<span>FLIX</span></h1>
-    </div>
-
-    <div class="header-controls">
-      <div class="select-wrapper">
-        <select id="playlistSelect" aria-label="Select Category Playlist">
-          <optgroup label="Global Directory">
-            <option value="https://iptv-org.github.io/iptv/index.m3u" selected>All Channels (iptv-org)</option>
-          </optgroup>
-          <optgroup label="Categories">
-            <option value="https://iptv-org.github.io/iptv/categories/entertainment.m3u">Entertainment & TV</option>
-            <option value="https://iptv-org.github.io/iptv/categories/movies.m3u">Movies & Cinema</option>
-            <option value="https://iptv-org.github.io/iptv/categories/news.m3u">Global News</option>
-            <option value="https://iptv-org.github.io/iptv/categories/sports.m3u">Live Sports</option>
-            <option value="https://iptv-org.github.io/iptv/categories/documentary.m3u">Documentary</option>
-            <option value="https://iptv-org.github.io/iptv/categories/kids.m3u">Kids & Family</option>
-            <option value="https://iptv-org.github.io/iptv/categories/music.m3u">Music Channels</option>
-          </optgroup>
-          <optgroup label="Languages">
-            <option value="https://iptv-org.github.io/iptv/languages/eng.m3u">English</option>
-            <option value="https://iptv-org.github.io/iptv/languages/spa.m3u">Spanish</option>
-            <option value="https://iptv-org.github.io/iptv/languages/fra.m3u">French</option>
-            <option value="https://iptv-org.github.io/iptv/languages/deu.m3u">German</option>
-          </optgroup>
+  <div class="app-container">
+    <header class="navbar">
+      <div class="logo" id="brandLogo" tabindex="0">StreamFlix</div>
+      <div class="playlist-controls">
+        <select id="playlistSelect">
+          <option value="https://iptv-org.github.io/iptv/index.m3u">IPTV-Org (Global Default - Full)</option>
+          <option value="https://iptv-org.github.io/iptv/categories/news.m3u">Category: News</option>
+          <option value="https://iptv-org.github.io/iptv/categories/sports.m3u">Category: Sports</option>
+          <option value="https://iptv-org.github.io/iptv/categories/movies.m3u">Category: Movies</option>
+          <option value="https://iptv-org.github.io/iptv/categories/music.m3u">Category: Music</option>
+          <option value="https://iptv-org.github.io/iptv/categories/entertainment.m3u">Category: Entertainment</option>
+          <option value="https://iptv-org.github.io/iptv/categories/documentary.m3u">Category: Documentary</option>
+          <option value="https://iptv-org.github.io/iptv/languages/eng.m3u">Language: English</option>
+          <option value="https://iptv-org.github.io/iptv/languages/spa.m3u">Language: Spanish</option>
+          <option value="https://iptv-org.github.io/iptv/languages/fra.m3u">Language: French</option>
+          <option value="https://iptv-org.github.io/iptv/languages/deu.m3u">Language: German</option>
+          <option value="https://iptv-org.github.io/iptv/languages/hin.m3u">Language: Hindi</option>
+          <option value="https://iptv-org.github.io/iptv/countries/us.m3u">Country: United States</option>
+          <option value="https://iptv-org.github.io/iptv/countries/uk.m3u">Country: United Kingdom</option>
+          <option value="https://iptv-org.github.io/iptv/countries/ca.m3u">Country: Canada</option>
+          <option value="https://iptv-org.github.io/iptv/countries/in.m3u">Country: India</option>
         </select>
-        <svg class="select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        <input type="text" id="m3uUrlInput" placeholder="Or enter custom M3U/M3U8 URL..." />
+        <button id="loadBtn">Load M3U</button>
       </div>
+    </header>
 
-      <div class="input-group">
-        <input type="text" id="m3uUrlInput" placeholder="Enter custom .m3u or .m3u8 URL..." aria-label="Custom M3U Input">
-        <button id="loadBtn" class="btn btn-primary">Load</button>
-      </div>
-    </div>
-  </header>
-
-  <!-- Application Shell -->
-  <div class="app-layout">
-
-    <!-- Video Theater Section -->
-    <main class="theater-section">
-      <div class="player-container">
-        <video id="videoPlayer" playsinline crossorigin controls></video>
-      </div>
-
-      <!-- Broadcast Controls Below Player -->
-      <div class="broadcast-bar">
-        <div class="broadcast-bar-top">
-          <div class="broadcast-meta">
-            <span class="live-indicator"><span class="pulse"></span>LIVE</span>
-            <h2 id="currentChannelName">Auto-loading broadcasts...</h2>
+    <main class="main-content">
+      <section class="player-section">
+        <div class="video-wrapper">
+          <video id="videoPlayer" crossorigin playsinline></video>
+        </div>
+        <div class="player-info">
+          <div class="channel-details">
+            <h2 id="currentChannelName">Select a Broadcast</h2>
+            <div id="statusBar">Status: Ready</div>
           </div>
-
-          <div class="broadcast-actions">
-            <div class="btn-group">
-              <button id="prevBtn" class="btn btn-secondary" aria-label="Previous Channel">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
-                <span>Prev</span>
-              </button>
-              
-              <button id="stopBtn" class="btn btn-danger" aria-label="Stop Auto Skip" title="Stop Auto-Skip">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>
-                <span>Stop</span>
-              </button>
-
-              <button id="nextBtn" class="btn btn-secondary" aria-label="Next Channel">
-                <span>Next</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
-              </button>
-            </div>
-            <div class="status-pill" id="statusBar">Initializing...</div>
+          <div class="playback-actions">
+            <button id="prevBtn" title="Previous Channel">‹ Prev</button>
+            <button id="stopBtn" title="Stop Auto-Skip">Stop Skip</button>
+            <button id="nextBtn" title="Next Channel">Next ›</button>
           </div>
         </div>
-      </div>
+      </section>
+
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <input type="text" id="channelSearch" placeholder="Search channels..." />
+          <div id="channelCount">Channels: 0</div>
+        </div>
+        <ul id="channelList" class="channel-list"></ul>
+      </aside>
     </main>
-    
-    <!-- Sidebar Directory Section -->
-    <aside class="sidebar-section">
-      <div class="sidebar-header">
-        <div class="search-input-wrapper">
-          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="channelSearch" placeholder="Search channels, categories, languages..." aria-label="Search channels">
-        </div>
-        <div id="channelCount" class="channel-count-display">
-          Initializing live directory...
-        </div>
-      </div>
-      <ul class="channel-directory" id="channelList"></ul>
-    </aside>
-
   </div>
 
   <script src="script.js"></script>

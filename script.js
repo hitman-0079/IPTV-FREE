@@ -10,8 +10,13 @@ let plyrInstance = null;
 // Gemini Captions State
 let captionsEnabled = false;
 let geminiApiKey = localStorage.getItem('gemini_api_key') || '';
-let captionInterval = null;
+let captureInterval = null;
 let isCapturing = false;
+
+// Stream Health & Availability Tracking
+const offlineUrls = new Set();
+let healthCheckQueue = [];
+let isCheckingHealth = false;
 
 // Audio Volume States
 let userVolume = 1;
@@ -129,7 +134,6 @@ function startGeminiCaptions() {
   isCapturing = true;
 
   try {
-    // Capture the internal audio stream from the HTML5 video element
     const stream = videoPlayer.captureStream ? videoPlayer.captureStream() : (videoPlayer.mozCaptureStream ? videoPlayer.mozCaptureStream() : null);
     
     if (!stream || stream.getAudioTracks().length === 0) {
@@ -139,12 +143,11 @@ function startGeminiCaptions() {
 
     captionText.textContent = "Listening to live broadcast...";
     
-    // Cycle and record a chunk of audio every 4 seconds
     captureInterval = setInterval(() => {
       if (isCapturing) recordAndSendAudioChunk(stream);
     }, 4000);
     
-    recordAndSendAudioChunk(stream); // Send first chunk immediately
+    recordAndSendAudioChunk(stream);
 
   } catch (err) {
     captionText.textContent = "CORS Error: Audio capture blocked by stream security.";
@@ -180,7 +183,6 @@ function recordAndSendAudioChunk(stream) {
   };
 
   recorder.start();
-  // Stop recording just before the next cycle begins to output the file
   setTimeout(() => {
     if (recorder.state !== 'inactive') recorder.stop();
   }, 3900); 
@@ -205,7 +207,7 @@ async function transcribeWithGemini(base64Data) {
         { inlineData: { mimeType: "audio/webm", data: base64Data } }
       ]
     }],
-    generationConfig: { temperature: 0.2 } // Low temp for accurate transcription
+    generationConfig: { temperature: 0.2 }
   };
 
   try {
@@ -219,19 +221,71 @@ async function transcribeWithGemini(base64Data) {
 
     if (data.candidates && data.candidates[0].content.parts[0].text) {
       const text = data.candidates[0].content.parts[0].text.trim();
-      
-      // Ignore empty silence reports to keep the last spoken subtitle on screen
       if (text && !text.includes("[SILENCE]")) {
         captionText.textContent = text;
       }
-    } else if (data.error) {
-      if (data.error.code === 403) {
-        captionText.textContent = "Error: Invalid Gemini API Key.";
-        stopGeminiCaptions();
-      }
+    } else if (data.error && data.error.code === 403) {
+      captionText.textContent = "Error: Invalid Gemini API Key.";
+      stopGeminiCaptions();
     }
   } catch (err) {
     console.error("Gemini Transcription Error:", err);
+  }
+}
+
+/* ========================================================= */
+/* LIVE HEALTH SCANNER (ONLINE-ONLY FILTER)                  */
+/* ========================================================= */
+
+function startBackgroundHealthScan() {
+  healthCheckQueue = [...channels];
+  if (!isCheckingHealth) {
+    isCheckingHealth = true;
+    processHealthQueue();
+  }
+}
+
+async function processHealthQueue() {
+  const BATCH_SIZE = 5; // Check 5 streams concurrently
+  
+  while (healthCheckQueue.length > 0) {
+    const batch = healthCheckQueue.splice(0, BATCH_SIZE);
+    await Promise.all(batch.map(channel => checkChannelHealth(channel)));
+  }
+  
+  isCheckingHealth = false;
+}
+
+function checkChannelHealth(channel) {
+  return new Promise((resolve) => {
+    if (offlineUrls.has(channel.url)) {
+      resolve(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
+
+    fetch(channel.url, { method: 'HEAD', signal: controller.signal })
+      .then(res => {
+        clearTimeout(timeoutId);
+        if (!res.ok && res.status >= 400) {
+          markChannelOffline(channel);
+        }
+        resolve(res.ok);
+      })
+      .catch(() => {
+        clearTimeout(timeoutId);
+        markChannelOffline(channel);
+        resolve(false);
+      });
+  });
+}
+
+function markChannelOffline(channel) {
+  if (!offlineUrls.has(channel.url)) {
+    offlineUrls.add(channel.url);
+    filterChannels(); // Re-filter to immediately remove offline channels from menu
   }
 }
 
@@ -332,11 +386,16 @@ async function fetchAndParsePlaylist(url) {
       }
 
       filterChannels();
-      statusBar.textContent = `${channels.length.toLocaleString()} channels loaded`;
+      statusBar.textContent = `${activeCategoryList.length.toLocaleString()} online channels loaded`;
 
-      const firstChannel = activeCategoryList[0];
-      const firstElement = channelListEl.children[0];
-      playChannel(firstChannel, firstElement, 0, false);
+      // Start asynchronous health check to filter dead links
+      startBackgroundHealthScan();
+
+      if (activeCategoryList.length > 0) {
+        const firstChannel = activeCategoryList[0];
+        const firstElement = channelListEl.children[0];
+        playChannel(firstChannel, firstElement, 0, false);
+      }
     }, 20);
 
   } catch (error) {
@@ -400,10 +459,13 @@ function capitalize(str) {
 function filterChannels() {
   const query = searchInput.value.trim().toLowerCase();
   
+  // Filter out any streams recorded as offline
+  const onlineOnlyChannels = channels.filter(c => !offlineUrls.has(c.url));
+
   if (!query) {
-    activeCategoryList = channels;
+    activeCategoryList = onlineOnlyChannels;
   } else {
-    activeCategoryList = channels.filter(c => 
+    activeCategoryList = onlineOnlyChannels.filter(c => 
       c.name.toLowerCase().includes(query) || 
       c.category.toLowerCase().includes(query) ||
       c.language.toLowerCase().includes(query)
@@ -414,11 +476,11 @@ function filterChannels() {
   channelListEl.innerHTML = '';
   
   if (channelCountEl) {
-    channelCountEl.textContent = `Channels: ${activeCategoryList.length.toLocaleString()} of ${channels.length.toLocaleString()}`;
+    channelCountEl.textContent = `Online Channels: ${activeCategoryList.length.toLocaleString()}`;
   }
 
   if (activeCategoryList.length === 0) {
-    channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">No channels found</li>';
+    channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">No active online channels available</li>';
     return;
   }
 
@@ -461,7 +523,6 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
     skipTimer = null;
   }
   
-  // Restart captions context for the new audio track
   if (captionsEnabled) {
     stopGeminiCaptions();
   }
@@ -539,17 +600,19 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
 
     hlsPlayer.on(Hls.Events.ERROR, function(event, data) {
       if (data.fatal) {
+        markChannelOffline(channel); // Instantly hide channel on playback failure
+        
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
             statusBar.textContent = 'Offline. Auto-skipping...';
-            skipTimer = setTimeout(() => navigateCategoryChannel(1), 1200);
+            skipTimer = setTimeout(() => navigateCategoryChannel(1), 1000);
             break;
           case Hls.ErrorTypes.MEDIA_ERROR:
             hlsPlayer.recoverMediaError();
             break;
           default:
             statusBar.textContent = 'Playback error. Auto-skipping...';
-            skipTimer = setTimeout(() => navigateCategoryChannel(1), 1200);
+            skipTimer = setTimeout(() => navigateCategoryChannel(1), 1000);
             break;
         }
       }

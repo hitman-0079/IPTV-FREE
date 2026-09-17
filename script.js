@@ -11,11 +11,10 @@ let plyrInstance = null;
 let userVolume = 1;
 let isUserMuted = false;
 
-// Persistent Scanner State (Saved across page reloads)
+// Persistent Scanner State across refreshes
 let brokenUrls = new Set(JSON.parse(localStorage.getItem('streamflix_offline_urls') || '[]'));
-let scannedUrls = new Set();
 let scannerLoopActive = false;
-let scanQueue = [];
+let currentScanIndex = parseInt(localStorage.getItem('streamflix_scan_index') || '0', 10);
 
 const RENDER_CHUNK_SIZE = 100;
 let renderedCount = 0;
@@ -63,11 +62,15 @@ const nextBtn = document.getElementById('nextBtn');
 const channelCountEl = document.getElementById('channelCount');
 
 /* ========================================================= */
-/* PERSISTENCE HELPER                                       */
+/* PERSISTENCE HELPERS                                       */
 /* ========================================================= */
 
 function saveOfflineChannels() {
   localStorage.setItem('streamflix_offline_urls', JSON.stringify([...brokenUrls]));
+}
+
+function saveScanProgress(index) {
+  localStorage.setItem('streamflix_scan_index', index.toString());
 }
 
 /* ========================================================= */
@@ -149,58 +152,59 @@ async function autoInitializeApp() {
 }
 
 /* ========================================================= */
-/* DEDICATED CONTINUOUS BACKGROUND LOOP SCANNER             */
+/* PERSISTENT CONTINUOUS BACKGROUND LOOP SCANNER             */
 /* ========================================================= */
 
 function startBackgroundScanner() {
-  scanQueue = [...channels];
-  
-  if (!scannerLoopActive) {
+  if (!scannerLoopActive && channels.length > 0) {
     scannerLoopActive = true;
     continuousScannerLoop();
   }
 }
 
 async function continuousScannerLoop() {
-  const BATCH_SIZE = 10;        // Concurrent stream checks
-  const BATCH_DELAY_MS = 300;   // Delay between checks to keep UI light
-  const CYCLE_REST_MS = 5000;   // Delay before restarting the full scan loop
+  const BATCH_SIZE = 10;        // Concurrent stream health checks
+  const BATCH_DELAY_MS = 300;   // Delay between batches to ensure lightweight execution
+  const CYCLE_REST_MS = 5000;   // Rest delay before repeating from start when entire list completes
 
   while (scannerLoopActive) {
-    // When finished testing all channels, pause briefly and restart the verification loop indefinitely
-    if (scanQueue.length === 0) {
-      scannedUrls.clear(); 
-      scanQueue = [...channels];
+    if (channels.length === 0) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      continue;
+    }
+
+    // Wrap around to start if scan index exceeds available channel count
+    if (currentScanIndex >= channels.length) {
+      currentScanIndex = 0;
+      saveScanProgress(0);
       await new Promise(resolve => setTimeout(resolve, CYCLE_REST_MS));
       continue;
     }
 
-    const batch = [];
-    while (batch.length < BATCH_SIZE && scanQueue.length > 0) {
-      const channel = scanQueue.shift();
-      if (!scannedUrls.has(channel.url)) {
-        scannedUrls.add(channel.url);
-        batch.push(channel);
-      }
-    }
+    // Fetch next batch based on saved progress index
+    const batch = channels.slice(currentScanIndex, currentScanIndex + BATCH_SIZE);
 
     if (batch.length > 0) {
       await Promise.all(batch.map(async (channel) => {
         const isOnline = await checkStreamHealth(channel.url);
         
-        // Channel went offline: update storage & UI
+        // Channel offline: add to storage & update UI
         if (!isOnline && !brokenUrls.has(channel.url)) {
           brokenUrls.add(channel.url);
           saveOfflineChannels();
           throttledFilterChannels(); 
         } 
-        // Channel came back online: update storage & UI
+        // Channel back online: remove from storage & update UI
         else if (isOnline && brokenUrls.has(channel.url)) {
           brokenUrls.delete(channel.url);
           saveOfflineChannels();
           throttledFilterChannels();
         }
       }));
+
+      // Update and save current scanner cursor position
+      currentScanIndex += batch.length;
+      saveScanProgress(currentScanIndex);
     }
 
     await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
@@ -269,11 +273,15 @@ function goHome() {
 
 playlistSelect.addEventListener('change', () => {
   m3uUrlInput.value = '';
+  currentScanIndex = 0;
+  saveScanProgress(0);
   fetchAndParsePlaylist(playlistSelect.value);
 });
 
 loadBtn.addEventListener('click', () => {
   const customUrl = m3uUrlInput.value.trim();
+  currentScanIndex = 0;
+  saveScanProgress(0);
   fetchAndParsePlaylist(customUrl || playlistSelect.value);
 });
 
@@ -317,8 +325,6 @@ function navigateCategoryChannel(direction) {
 }
 
 async function fetchAndParsePlaylist(url) {
-  scannedUrls.clear();
-
   statusBar.textContent = 'Auto-fetching live channels...';
   channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Syncing full channel list...</li>';
 

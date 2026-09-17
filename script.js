@@ -11,7 +11,7 @@ let plyrInstance = null;
 let userVolume = 1;
 let isUserMuted = false;
 
-// Persistent 24/7 Background Channel Scanner State (Saved across refreshes)
+// Persistent Scanner State (Saved across page reloads)
 let brokenUrls = new Set(JSON.parse(localStorage.getItem('streamflix_offline_urls') || '[]'));
 let scannedUrls = new Set();
 let scannerLoopActive = false;
@@ -93,7 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
     videoPlayer.muted = isUserMuted;
   });
 
-  // Automatically switch screen orientation to landscape on fullscreen
   plyrInstance.on('enterfullscreen', () => {
     autoLockOrientation('landscape');
   });
@@ -112,7 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
   autoInitializeApp();
 });
 
-// Fallback listener for native browser fullscreen changes
 document.addEventListener('fullscreenchange', handleNativeFullscreenChange);
 document.addEventListener('webkitfullscreenchange', handleNativeFullscreenChange);
 
@@ -151,7 +149,7 @@ async function autoInitializeApp() {
 }
 
 /* ========================================================= */
-/* CONTINUOUS 24/7 BACKGROUND SCANNER                        */
+/* DEDICATED CONTINUOUS BACKGROUND LOOP SCANNER             */
 /* ========================================================= */
 
 function startBackgroundScanner() {
@@ -164,12 +162,12 @@ function startBackgroundScanner() {
 }
 
 async function continuousScannerLoop() {
-  const BATCH_SIZE = 15;        // Concurrent stream checks per batch
-  const BATCH_DELAY_MS = 200;   // Delay between batches to keep UI smooth (0.2s)
-  const CYCLE_REST_MS = 10000;  // Rest delay when 100% of channels have been checked (10s)
+  const BATCH_SIZE = 10;        // Concurrent stream checks
+  const BATCH_DELAY_MS = 300;   // Delay between checks to keep UI light
+  const CYCLE_REST_MS = 5000;   // Delay before restarting the full scan loop
 
   while (scannerLoopActive) {
-    // When finished testing all channels, pause 10s and restart verification cycle
+    // When finished testing all channels, pause briefly and restart the verification loop indefinitely
     if (scanQueue.length === 0) {
       scannedUrls.clear(); 
       scanQueue = [...channels];
@@ -190,13 +188,13 @@ async function continuousScannerLoop() {
       await Promise.all(batch.map(async (channel) => {
         const isOnline = await checkStreamHealth(channel.url);
         
-        // Hide channel & update localStorage if offline
+        // Channel went offline: update storage & UI
         if (!isOnline && !brokenUrls.has(channel.url)) {
           brokenUrls.add(channel.url);
           saveOfflineChannels();
           throttledFilterChannels(); 
         } 
-        // Re-enable channel & update localStorage if stream recovers
+        // Channel came back online: update storage & UI
         else if (isOnline && brokenUrls.has(channel.url)) {
           brokenUrls.delete(channel.url);
           saveOfflineChannels();
@@ -319,7 +317,6 @@ function navigateCategoryChannel(direction) {
 }
 
 async function fetchAndParsePlaylist(url) {
-  // brokenUrls is NOT cleared here to preserve offline state across refreshes
   scannedUrls.clear();
 
   statusBar.textContent = 'Auto-fetching live channels...';
@@ -553,20 +550,16 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
 
     hlsPlayer.on(Hls.Events.ERROR, function(event, data) {
       if (data.fatal) {
-        brokenUrls.add(channel.url);
-        saveOfflineChannels();
-        filterChannels();
-
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
-            statusBar.textContent = 'Offline. Skipping to next channel...';
+            statusBar.textContent = 'Stream error. Auto-skipping to next...';
             skipTimer = setTimeout(() => navigateCategoryChannel(1), 1200);
             break;
           case Hls.ErrorTypes.MEDIA_ERROR:
             hlsPlayer.recoverMediaError();
             break;
           default:
-            statusBar.textContent = 'Playback error. Skipping...';
+            statusBar.textContent = 'Playback error. Auto-skipping...';
             skipTimer = setTimeout(() => navigateCategoryChannel(1), 1200);
             break;
         }

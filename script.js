@@ -88,10 +88,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // KEYBOARD NAVIGATION SETUP
+  document.addEventListener('keydown', handleGlobalKeydown);
+
   categoryFilter.addEventListener('change', filterChannels);
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
   autoInitializeApp();
 });
+
+/* KEYBOARD NAVIGATION HANDLER */
+function handleGlobalKeydown(e) {
+  const activeElement = document.activeElement;
+  const isInputFocused = activeElement && (
+    activeElement.tagName === 'INPUT' || 
+    activeElement.tagName === 'TEXTAREA' || 
+    activeElement.tagName === 'SELECT'
+  );
+
+  // Skip keyboard navigation if user is currently typing in an input
+  if (isInputFocused) return;
+
+  if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+    e.preventDefault();
+    navigateCategoryChannel(-1);
+  } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+    e.preventDefault();
+    navigateCategoryChannel(1);
+  }
+}
 
 async function autoInitializeApp() {
   statusBar.textContent = 'Loading channel directory...';

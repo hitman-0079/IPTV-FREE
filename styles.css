@@ -207,9 +207,9 @@ body {
   border-color: #b91c1c;
 }
 
-/* SIDEBAR & SEARCH HIGHLIGHTS */
+/* SIDEBAR & CHANNEL LIST STYLING */
 .sidebar {
-  width: 360px;
+  width: 380px;
   background-color: #111827;
   border-left: 1px solid #1f2937;
   display: flex;
@@ -221,8 +221,26 @@ body {
   border-bottom: 1px solid #1f2937;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   background-color: #182234;
+}
+
+.sidebar-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.count-badge {
+  font-size: 0.72rem;
+  background-color: #0284c7;
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
 }
 
 .search-wrapper {
@@ -268,12 +286,7 @@ body {
   outline: none;
 }
 
-#channelCount {
-  font-size: 0.75rem;
-  color: #9ca3af;
-  text-align: right;
-}
-
+/* CHANNEL ITEM DESIGN */
 .channel-list {
   list-style: none;
   overflow-y: auto;
@@ -285,8 +298,8 @@ body {
   border-bottom: 1px solid #1f2937;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 12px;
   transition: background-color 0.15s;
 }
 
@@ -298,8 +311,23 @@ body {
   background-color: #0284c7;
 }
 
-.channel-item.active .channel-meta span {
+.channel-idx {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  min-width: 28px;
+}
+
+.channel-item.active .channel-idx {
   color: #e0f2fe;
+}
+
+.channel-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-grow: 1;
+  overflow: hidden;
 }
 
 .channel-name {
@@ -312,13 +340,17 @@ body {
 
 .channel-meta {
   display: flex;
-  justify-content: space-between;
+  gap: 8px;
   font-size: 0.72rem;
   color: #9ca3af;
 }
 
+.channel-item.active .channel-meta span {
+  color: #e0f2fe;
+}
+
 .channel-category {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.08);
   padding: 1px 6px;
   border-radius: 3px;
 }

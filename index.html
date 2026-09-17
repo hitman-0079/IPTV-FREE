@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>StreamFlix Mobile</title>
+  <title>StreamFlix Pro Mobile</title>
   <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -19,12 +19,6 @@
           <span class="logo-accent">STREAM</span>FLIX <span class="badge-pro">PRO</span>
         </div>
       </div>
-
-      <!-- Prominent Header Search Bar -->
-      <div class="main-search-bar">
-        <input type="search" id="headerChannelSearch" placeholder="🔍 Search channels, categories, or languages..." />
-      </div>
-
       <div class="playlist-controls">
         <select id="playlistSelect" aria-label="Select Playlist Preset">
           <optgroup label="Global Directories">
@@ -53,8 +47,8 @@
           </optgroup>
         </select>
         <div class="custom-input-group">
-          <input type="url" id="m3uUrlInput" placeholder="Paste M3U link..." />
-          <button id="loadBtn">Load</button>
+          <input type="url" id="m3uUrlInput" placeholder="Paste custom M3U/M3U8 link..." />
+          <button id="loadBtn">Load Link</button>
         </div>
       </div>
     </header>
@@ -70,25 +64,36 @@
         
         <div class="player-bar">
           <div class="channel-details">
-            <h2 id="currentChannelName">Select Broadcast</h2>
+            <h2 id="currentChannelName">Select a Broadcast</h2>
             <div id="statusBar">Status: Standby</div>
           </div>
           <div class="playback-actions">
-            <button id="prevBtn" title="Previous Channel">‹</button>
+            <button id="prevBtn" title="Previous Channel">‹ Prev</button>
             <button id="stopBtn" class="btn-stop" title="Stop Auto-Skip">Stop</button>
-            <button id="nextBtn" title="Next Channel">›</button>
+            <button id="nextBtn" title="Next Channel">Next ›</button>
           </div>
         </div>
       </section>
 
       <aside class="sidebar">
         <div class="sidebar-header">
+          <!-- Standalone Professional Search Bar -->
+          <div class="search-box-wrapper">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="search" id="channelSearch" placeholder="Search by channel, category, language..." />
+            <button id="clearSearchBtn" class="clear-search-btn" aria-label="Clear Search">&times;</button>
+          </div>
+
+          <!-- Secondary Filter Controls -->
           <div class="filter-controls">
             <select id="categoryFilter" aria-label="Filter by Category">
               <option value="ALL">All Categories</option>
             </select>
+            <div id="channelCount">Channels: 0</div>
           </div>
-          <div id="channelCount">Channels: 0</div>
         </div>
         <ul id="channelList" class="channel-list"></ul>
       </aside>

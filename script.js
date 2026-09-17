@@ -40,7 +40,7 @@ const categoryFilter = document.getElementById('categoryFilter');
 const m3uUrlInput = document.getElementById('m3uUrlInput');
 const loadBtn = document.getElementById('loadBtn');
 const channelListEl = document.getElementById('channelList');
-const searchInput = document.getElementById('channelSearch');
+const headerSearchInput = document.getElementById('headerChannelSearch');
 const videoPlayer = document.getElementById('videoPlayer');
 const statusBar = document.getElementById('statusBar');
 const currentChannelName = document.getElementById('currentChannelName');
@@ -88,7 +88,7 @@ async function autoInitializeApp() {
   fetchAndParsePlaylist(playlistSelect.value);
 }
 
-/* SMARTPHONE TOUCH GESTURES (SWIPE UP / DOWN TO SWITCH CHANNELS) */
+/* SMARTPHONE TOUCH GESTURES */
 function setupMobileTouchGestures() {
   let touchStartY = 0;
   let touchEndY = 0;
@@ -106,9 +106,9 @@ function setupMobileTouchGestures() {
     const swipeDistance = touchStartY - touchEndY;
     if (Math.abs(swipeDistance) > 50) {
       if (swipeDistance > 0) {
-        navigateCategoryChannel(1); // Swipe Up -> Next Channel
+        navigateCategoryChannel(1);
       } else {
-        navigateCategoryChannel(-1); // Swipe Down -> Previous Channel
+        navigateCategoryChannel(-1);
       }
       showGestureHint();
     }
@@ -196,7 +196,7 @@ brandLogo.addEventListener('click', goHome);
 
 function goHome() {
   if (skipTimer) clearTimeout(skipTimer);
-  searchInput.value = '';
+  headerSearchInput.value = '';
   m3uUrlInput.value = '';
   categoryFilter.value = 'ALL';
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
@@ -217,7 +217,7 @@ loadBtn.addEventListener('click', () => {
   fetchAndParsePlaylist(customUrl || playlistSelect.value);
 });
 
-searchInput.addEventListener('input', () => {
+headerSearchInput.addEventListener('input', () => {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(filterChannels, 150);
 });
@@ -320,7 +320,7 @@ function fastM3UParse(m3uData) {
 }
 
 function filterChannels() {
-  const query = searchInput.value.trim().toLowerCase();
+  const query = headerSearchInput.value.trim().toLowerCase();
   const selectedCategory = categoryFilter.value;
   
   let pool = channels.filter(c => !brokenUrls.has(c.url));
@@ -332,7 +332,8 @@ function filterChannels() {
   if (query) {
     pool = pool.filter(c => 
       c.name.toLowerCase().includes(query) || 
-      c.category.toLowerCase().includes(query)
+      c.category.toLowerCase().includes(query) ||
+      c.language.toLowerCase().includes(query)
     );
   }
 

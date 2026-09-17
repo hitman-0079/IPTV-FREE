@@ -2,21 +2,31 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background-color: #0b0f17;
   color: #f1f5f9;
   min-height: 100vh;
+  min-height: -webkit-fill-available;
   display: flex;
   flex-direction: column;
+  overscroll-behavior-y: none;
+}
+
+html {
+  height: -webkit-fill-available;
 }
 
 .app-container {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* NAVBAR */
@@ -24,15 +34,15 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 24px;
+  padding: 10px 16px;
   background-color: #111827;
   border-bottom: 1px solid #1f2937;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .logo {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: 0.5px;
   cursor: pointer;
@@ -47,7 +57,7 @@ body {
 }
 
 .badge-pro {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   background: #0284c7;
   color: #ffffff;
   padding: 2px 6px;
@@ -57,30 +67,24 @@ body {
 
 .playlist-controls {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-grow: 1;
   max-width: 800px;
 }
 
 .playlist-controls select,
 .custom-input-group input {
-  padding: 8px 12px;
-  border-radius: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
   border: 1px solid #374151;
   background-color: #1f2937;
   color: #f9fafb;
   font-size: 0.85rem;
   outline: none;
-  transition: border-color 0.2s;
-}
-
-.playlist-controls select:focus,
-.custom-input-group input:focus {
-  border-color: #0284c7;
 }
 
 .playlist-controls select {
-  flex-basis: 240px;
+  flex-basis: 180px;
 }
 
 .custom-input-group {
@@ -91,25 +95,21 @@ body {
 
 .custom-input-group input {
   flex-grow: 1;
+  min-width: 0;
 }
 
 .playlist-controls button {
-  padding: 8px 16px;
-  border-radius: 6px;
+  padding: 10px 14px;
+  border-radius: 8px;
   border: none;
   background-color: #0284c7;
   color: #ffffff;
   font-weight: 600;
   font-size: 0.85rem;
   cursor: pointer;
-  transition: background-color 0.2s;
 }
 
-.playlist-controls button:hover {
-  background-color: #0369a1;
-}
-
-/* MAIN CONTENT */
+/* MAIN LAYOUT */
 .main-content {
   display: flex;
   flex: 1;
@@ -122,8 +122,8 @@ body {
   display: flex;
   flex-direction: column;
   background-color: #030712;
-  padding: 20px;
-  gap: 16px;
+  padding: 12px;
+  gap: 12px;
   overflow-y: auto;
 }
 
@@ -134,17 +134,40 @@ body {
 }
 
 .video-wrapper {
+  position: relative;
   aspect-ratio: 16 / 9;
   background-color: #000000;
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6);
   border: 1px solid #1f2937;
+  touch-action: pan-x;
 }
 
 .video-wrapper video {
   width: 100%;
   height: 100%;
+}
+
+.gesture-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  color: #e0f2fe;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.gesture-hint.show {
+  opacity: 1;
 }
 
 .player-bar {
@@ -155,61 +178,54 @@ body {
   justify-content: space-between;
   align-items: center;
   background-color: #111827;
-  padding: 16px 20px;
+  padding: 12px 16px;
   border-radius: 10px;
   border: 1px solid #1f2937;
+  gap: 12px;
 }
 
 .channel-details h2 {
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 700;
-  margin-bottom: 4px;
+  line-height: 1.2;
 }
 
 .header-lang-tag {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   background-color: #1f2937;
   color: #38bdf8;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 4px;
-  margin-left: 6px;
   border: 1px solid #374151;
 }
 
 #statusBar {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #9ca3af;
+  margin-top: 2px;
 }
 
 .playback-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .playback-actions button {
-  padding: 8px 14px;
-  border-radius: 6px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 8px;
   border: 1px solid #374151;
   background-color: #1f2937;
   color: #f9fafb;
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
-}
-
-.playback-actions button:hover {
-  background-color: #374151;
-}
-
-.playback-actions .btn-stop:hover {
-  background-color: #991b1b;
-  border-color: #b91c1c;
 }
 
 /* SIDEBAR */
 .sidebar {
-  width: 360px;
+  width: 340px;
   background-color: #111827;
   border-left: 1px solid #1f2937;
   display: flex;
@@ -217,24 +233,23 @@ body {
 }
 
 .sidebar-header {
-  padding: 16px;
+  padding: 12px;
   border-bottom: 1px solid #1f2937;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.filter-controls {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
+.filter-controls {
+  display: flex;
+  gap: 8px;
+}
+
 .filter-controls select,
 .filter-controls input {
-  width: 100%;
-  padding: 8px 12px;
-  border-radius: 6px;
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
   border: 1px solid #374151;
   background-color: #1f2937;
   color: #f9fafb;
@@ -243,7 +258,7 @@ body {
 }
 
 #channelCount {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: #9ca3af;
   text-align: right;
 }
@@ -252,36 +267,25 @@ body {
   list-style: none;
   overflow-y: auto;
   flex: 1;
+  -webkit-overflow-scrolling: touch;
 }
 
 .channel-item {
-  padding: 12px 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid #1f2937;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  transition: background-color 0.15s;
-}
-
-.channel-item:hover {
-  background-color: #1f2937;
+  gap: 4px;
 }
 
 .channel-item.active {
   background-color: #0284c7;
 }
 
-.channel-item.active .channel-meta span {
-  color: #e0f2fe;
-}
-
 .channel-name {
   font-size: 0.88rem;
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .channel-meta {
@@ -291,25 +295,43 @@ body {
   color: #9ca3af;
 }
 
-.channel-category {
-  background-color: rgba(255, 255, 255, 0.05);
-  padding: 1px 6px;
-  border-radius: 3px;
-}
-
-@media (max-width: 1024px) {
+/* SMARTPHONE & MOBILE BREAKPOINTS */
+@media (max-width: 850px) {
   .app-container {
     height: auto;
+    min-height: 100dvh;
   }
-  .main-content {
-    flex-direction: column;
+  
+  .navbar {
+    padding: 8px 12px;
   }
-  .sidebar {
-    width: 100%;
-    height: 480px;
-  }
+
   .playlist-controls {
     flex-direction: column;
     width: 100%;
+  }
+
+  .playlist-controls select {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .main-content {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .player-section {
+    padding: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: 60vh;
+    border-left: none;
+    border-top: 1px solid #1f2937;
   }
 }

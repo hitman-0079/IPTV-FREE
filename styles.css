@@ -176,14 +176,6 @@ select:focus, input[type="text"]:focus {
   border-color: var(--border-strong);
 }
 
-/* Subtitle Control Button Active State */
-.btn-caption.active {
-  background-color: var(--accent-primary);
-  color: #ffffff;
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 10px rgba(14, 165, 233, 0.4);
-}
-
 .btn-danger {
   background-color: #ef4444;
   color: #ffffff;
@@ -224,7 +216,7 @@ select:focus, input[type="text"]:focus {
 .player-container {
   width: 100%;
   max-width: 1280px;
-  max-height: calc(100% - 110px);
+  max-height: calc(100% - 70px);
   aspect-ratio: 16 / 9;
   border-radius: 12px;
   overflow: hidden;
@@ -261,7 +253,7 @@ select:focus, input[type="text"]:focus {
   object-fit: fill !important;
 }
 
-/* Broadcast Control & Caption Bar Below Video */
+/* Broadcast Control Bar Below Video */
 .broadcast-bar {
   width: 100%;
   max-width: 1280px;
@@ -281,43 +273,6 @@ select:focus, input[type="text"]:focus {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-}
-
-/* Subtitle Below Player Panel Styling */
-.live-caption-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background-color: var(--bg-base);
-  border: 1px solid var(--border-subtle);
-  padding: 8px 14px;
-  border-radius: 8px;
-  margin-top: 2px;
-}
-
-.live-caption-bar.hidden {
-  display: none;
-}
-
-.caption-label {
-  font-size: 0.65rem;
-  font-weight: 800;
-  background-color: var(--accent-primary);
-  color: #fff;
-  padding: 2px 6px;
-  border-radius: 4px;
-  letter-spacing: 0.05em;
-  flex-shrink: 0;
-}
-
-.caption-text {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
 }
 
 .broadcast-meta {

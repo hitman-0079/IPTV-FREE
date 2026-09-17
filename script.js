@@ -333,12 +333,11 @@ function filterChannels() {
   channelListEl.innerHTML = '';
   
   if (channelCountEl) {
-    channelCountEl.textContent = `Channels: ${activeCategoryList.length.toLocaleString()}` + 
-      (brokenUrls.size > 0 ? ` (${brokenUrls.size} offline hidden)` : '');
+    channelCountEl.textContent = `${activeCategoryList.length.toLocaleString()} Channels`;
   }
 
   if (activeCategoryList.length === 0) {
-    channelListEl.innerHTML = '<li style="padding: 20px; color: #9ca3af; text-align: center;">No matching streams found</li>';
+    channelListEl.innerHTML = '<li style="padding: 20px; color: #9ca3af; text-align: center;">No matching channels found</li>';
     return;
   }
 
@@ -356,10 +355,13 @@ function appendMoreChannels() {
     const li = document.createElement('li');
     li.className = 'channel-item';
     li.innerHTML = `
-      <span class="channel-name">${channel.name}</span>
-      <div class="channel-meta">
-        <span class="channel-category">${channel.category}</span>
-        <span class="channel-language">${channel.language}</span>
+      <span class="channel-idx">#${i + 1}</span>
+      <div class="channel-info">
+        <span class="channel-name">${channel.name}</span>
+        <div class="channel-meta">
+          <span class="channel-category">${channel.category}</span>
+          <span class="channel-language">${channel.language}</span>
+        </div>
       </div>
     `;
 

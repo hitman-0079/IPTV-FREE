@@ -19,6 +19,12 @@
           <span class="logo-accent">STREAM</span>FLIX <span class="badge-pro">PRO</span>
         </div>
       </div>
+
+      <!-- Prominent Header Search Bar -->
+      <div class="main-search-bar">
+        <input type="search" id="headerChannelSearch" placeholder="🔍 Search channels, categories, or languages..." />
+      </div>
+
       <div class="playlist-controls">
         <select id="playlistSelect" aria-label="Select Playlist Preset">
           <optgroup label="Global Directories">
@@ -47,7 +53,7 @@
           </optgroup>
         </select>
         <div class="custom-input-group">
-          <input type="url" id="m3uUrlInput" placeholder="Paste M3U/M3U8 link..." />
+          <input type="url" id="m3uUrlInput" placeholder="Paste M3U link..." />
           <button id="loadBtn">Load</button>
         </div>
       </div>
@@ -81,7 +87,6 @@
             <select id="categoryFilter" aria-label="Filter by Category">
               <option value="ALL">All Categories</option>
             </select>
-            <input type="search" id="channelSearch" placeholder="Search channels..." />
           </div>
           <div id="channelCount">Channels: 0</div>
         </div>

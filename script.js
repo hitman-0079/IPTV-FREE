@@ -11,7 +11,7 @@ let plyrInstance = null;
 let userVolume = 1;
 let isUserMuted = false;
 
-// Background Channel Scanner State
+// Fast Background Channel Scanner State
 let verifiedOnlineUrls = new Set();
 let scannedUrls = new Set();
 let isScanning = false;
@@ -92,11 +92,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ========================================================= */
-/* BACKGROUND ONLINE/OFFLINE STREAM SCANNER                   */
+/* FAST BACKGROUND ONLINE/OFFLINE STREAM SCANNER             */
 /* ========================================================= */
 
 function startBackgroundScanner() {
-  scanQueue = [...channels];
+  scanQueue = [...activeCategoryList, ...channels];
   verifiedOnlineUrls.clear();
   scannedUrls.clear();
   
@@ -106,42 +106,61 @@ function startBackgroundScanner() {
   }
 }
 
+let renderThrottleTimeout = null;
+function throttledFilterChannels() {
+  if (renderThrottleTimeout) return;
+  renderThrottleTimeout = setTimeout(() => {
+    filterChannels();
+    renderThrottleTimeout = null;
+  }, 300);
+}
+
 async function processScanQueue() {
-  // Concurrently test 5 streams at a time in the background
-  const BATCH_SIZE = 5;
+  const BATCH_SIZE = 25; // High concurrency for fast scanning
 
   while (scanQueue.length > 0) {
-    const batch = scanQueue.splice(0, BATCH_SIZE);
+    const batch = [];
     
-    await Promise.all(batch.map(async (channel) => {
-      if (scannedUrls.has(channel.url)) return;
-      scannedUrls.add(channel.url);
+    while (batch.length < BATCH_SIZE && scanQueue.length > 0) {
+      const channel = scanQueue.shift();
+      if (!scannedUrls.has(channel.url)) {
+        scannedUrls.add(channel.url);
+        batch.push(channel);
+      }
+    }
 
+    if (batch.length === 0) continue;
+
+    await Promise.all(batch.map(async (channel) => {
       const isOnline = await checkStreamHealth(channel.url);
       if (isOnline) {
         verifiedOnlineUrls.add(channel.url);
-        filterChannels(); 
+        throttledFilterChannels(); 
       }
     }));
-
-    await new Promise(resolve => setTimeout(resolve, 300));
   }
 
   isScanning = false;
+  filterChannels();
 }
 
 function checkStreamHealth(url) {
   return new Promise((resolve) => {
     const controller = new AbortController();
+    
     const timeoutId = setTimeout(() => {
       controller.abort();
       resolve(false);
-    }, 3500);
+    }, 1800);
 
-    fetch(url, { method: 'GET', signal: controller.signal })
-      .then(response => {
+    fetch(url, { 
+      method: 'HEAD', 
+      mode: 'no-cors',
+      signal: controller.signal 
+    })
+      .then(() => {
         clearTimeout(timeoutId);
-        resolve(response.ok);
+        resolve(true);
       })
       .catch(() => {
         clearTimeout(timeoutId);

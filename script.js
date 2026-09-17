@@ -13,14 +13,15 @@ let geminiApiKey = localStorage.getItem('gemini_api_key') || '';
 let captureInterval = null;
 let isCapturing = false;
 
-// Stream Health & Availability Tracking
-const offlineUrls = new Set();
-let healthCheckQueue = [];
-let isCheckingHealth = false;
-
 // Audio Volume States
 let userVolume = 1;
 let isUserMuted = false;
+
+// Background Channel Scanner State
+let verifiedOnlineUrls = new Set();
+let scannedUrls = new Set();
+let isScanning = false;
+let scanQueue = [];
 
 const RENDER_CHUNK_SIZE = 100;
 let renderedCount = 0;
@@ -97,12 +98,73 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Toggle Live Gemini Subtitles
   captionToggleBtn.addEventListener('click', toggleCaptions);
 
   playlistSelect.value = DEFAULT_PLAYLIST_URL;
   fetchAndParsePlaylist(playlistSelect.value);
 });
+
+/* ========================================================= */
+/* BACKGROUND ONLINE/OFFLINE STREAM SCANNER                   */
+/* ========================================================= */
+
+function startBackgroundScanner() {
+  scanQueue = [...channels];
+  verifiedOnlineUrls.clear();
+  scannedUrls.clear();
+  
+  if (!isScanning) {
+    isScanning = true;
+    processScanQueue();
+  }
+}
+
+async function processScanQueue() {
+  // Concurrently test 5 streams at a time in the background
+  const BATCH_SIZE = 5;
+
+  while (scanQueue.length > 0) {
+    const batch = scanQueue.splice(0, BATCH_SIZE);
+    
+    await Promise.all(batch.map(async (channel) => {
+      if (scannedUrls.has(channel.url)) return;
+      scannedUrls.add(channel.url);
+
+      const isOnline = await checkStreamHealth(channel.url);
+      if (isOnline) {
+        verifiedOnlineUrls.add(channel.url);
+        // Refresh visible directory menu to continuously expose new live streams
+        filterChannels(); 
+      }
+    }));
+
+    // Pause briefly between batches to prevent UI lag
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+
+  isScanning = false;
+}
+
+function checkStreamHealth(url) {
+  return new Promise((resolve) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      resolve(false);
+    }, 3500); // 3.5 sec timeout
+
+    // Rapid request check to see if playlist file exists and yields an HTTP 200
+    fetch(url, { method: 'GET', signal: controller.signal })
+      .then(response => {
+        clearTimeout(timeoutId);
+        resolve(response.ok);
+      })
+      .catch(() => {
+        clearTimeout(timeoutId);
+        resolve(false);
+      });
+  });
+}
 
 /* ========================================================= */
 /* GEMINI AI LIVE AUDIO CAPTIONING                           */
@@ -137,7 +199,7 @@ function startGeminiCaptions() {
     const stream = videoPlayer.captureStream ? videoPlayer.captureStream() : (videoPlayer.mozCaptureStream ? videoPlayer.mozCaptureStream() : null);
     
     if (!stream || stream.getAudioTracks().length === 0) {
-      captionText.textContent = "Error: Stream audio is blocked by broadcaster CORS policies.";
+      captionText.textContent = "Error: Audio blocked by stream security/CORS policies.";
       return;
     }
 
@@ -230,62 +292,6 @@ async function transcribeWithGemini(base64Data) {
     }
   } catch (err) {
     console.error("Gemini Transcription Error:", err);
-  }
-}
-
-/* ========================================================= */
-/* LIVE HEALTH SCANNER (ONLINE-ONLY FILTER)                  */
-/* ========================================================= */
-
-function startBackgroundHealthScan() {
-  healthCheckQueue = [...channels];
-  if (!isCheckingHealth) {
-    isCheckingHealth = true;
-    processHealthQueue();
-  }
-}
-
-async function processHealthQueue() {
-  const BATCH_SIZE = 5; // Check 5 streams concurrently
-  
-  while (healthCheckQueue.length > 0) {
-    const batch = healthCheckQueue.splice(0, BATCH_SIZE);
-    await Promise.all(batch.map(channel => checkChannelHealth(channel)));
-  }
-  
-  isCheckingHealth = false;
-}
-
-function checkChannelHealth(channel) {
-  return new Promise((resolve) => {
-    if (offlineUrls.has(channel.url)) {
-      resolve(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
-
-    fetch(channel.url, { method: 'HEAD', signal: controller.signal })
-      .then(res => {
-        clearTimeout(timeoutId);
-        if (!res.ok && res.status >= 400) {
-          markChannelOffline(channel);
-        }
-        resolve(res.ok);
-      })
-      .catch(() => {
-        clearTimeout(timeoutId);
-        markChannelOffline(channel);
-        resolve(false);
-      });
-  });
-}
-
-function markChannelOffline(channel) {
-  if (!offlineUrls.has(channel.url)) {
-    offlineUrls.add(channel.url);
-    filterChannels(); // Re-filter to immediately remove offline channels from menu
   }
 }
 
@@ -386,16 +392,15 @@ async function fetchAndParsePlaylist(url) {
       }
 
       filterChannels();
-      statusBar.textContent = `${activeCategoryList.length.toLocaleString()} online channels loaded`;
+      statusBar.textContent = `${channels.length.toLocaleString()} channels loaded`;
 
-      // Start asynchronous health check to filter dead links
-      startBackgroundHealthScan();
+      const firstChannel = activeCategoryList[0] || channels[0];
+      const firstElement = channelListEl.children[0];
+      playChannel(firstChannel, firstElement, 0, false);
 
-      if (activeCategoryList.length > 0) {
-        const firstChannel = activeCategoryList[0];
-        const firstElement = channelListEl.children[0];
-        playChannel(firstChannel, firstElement, 0, false);
-      }
+      // Trigger automatic background health scanning
+      startBackgroundScanner();
+
     }, 20);
 
   } catch (error) {
@@ -456,16 +461,20 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+// FILTER: Only display channels verified as ONLINE (or display all during initial load)
 function filterChannels() {
   const query = searchInput.value.trim().toLowerCase();
   
-  // Filter out any streams recorded as offline
-  const onlineOnlyChannels = channels.filter(c => !offlineUrls.has(c.url));
+  // Filter channels based on background scan results
+  let pool = channels;
+  if (scannedUrls.size > 0 && verifiedOnlineUrls.size > 0) {
+    pool = channels.filter(c => verifiedOnlineUrls.has(c.url));
+  }
 
   if (!query) {
-    activeCategoryList = onlineOnlyChannels;
+    activeCategoryList = pool;
   } else {
-    activeCategoryList = onlineOnlyChannels.filter(c => 
+    activeCategoryList = pool.filter(c => 
       c.name.toLowerCase().includes(query) || 
       c.category.toLowerCase().includes(query) ||
       c.language.toLowerCase().includes(query)
@@ -476,11 +485,14 @@ function filterChannels() {
   channelListEl.innerHTML = '';
   
   if (channelCountEl) {
-    channelCountEl.textContent = `Online Channels: ${activeCategoryList.length.toLocaleString()}`;
+    const scannedTotal = scannedUrls.size;
+    channelCountEl.textContent = scannedTotal > 0 
+      ? `Online Channels: ${activeCategoryList.length.toLocaleString()} (Scanned: ${scannedTotal})` 
+      : `Channels: ${activeCategoryList.length.toLocaleString()}`;
   }
 
   if (activeCategoryList.length === 0) {
-    channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">No active online channels available</li>';
+    channelListEl.innerHTML = '<li style="padding: 20px; color: #6b7280; text-align: center; font-size: 0.85rem;">Scanning for online streams...</li>';
     return;
   }
 
@@ -600,19 +612,21 @@ function playChannel(channel, element, categoryIndex, isUserClicked = true) {
 
     hlsPlayer.on(Hls.Events.ERROR, function(event, data) {
       if (data.fatal) {
-        markChannelOffline(channel); // Instantly hide channel on playback failure
-        
+        // If playing the stream fails, mark it offline and remove it from menu
+        verifiedOnlineUrls.delete(channel.url);
+        filterChannels();
+
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
-            statusBar.textContent = 'Offline. Auto-skipping...';
-            skipTimer = setTimeout(() => navigateCategoryChannel(1), 1000);
+            statusBar.textContent = 'Offline. Skipping to next working stream...';
+            skipTimer = setTimeout(() => navigateCategoryChannel(1), 1200);
             break;
           case Hls.ErrorTypes.MEDIA_ERROR:
             hlsPlayer.recoverMediaError();
             break;
           default:
-            statusBar.textContent = 'Playback error. Auto-skipping...';
-            skipTimer = setTimeout(() => navigateCategoryChannel(1), 1000);
+            statusBar.textContent = 'Playback error. Skipping...';
+            skipTimer = setTimeout(() => navigateCategoryChannel(1), 1200);
             break;
         }
       }
